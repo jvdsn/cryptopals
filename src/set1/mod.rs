@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
-    use crate::shared::xor::xor;
+    use crate::shared::xor::{frequency_analysis, xor};
 
     #[test]
     fn test_challenge_1() {
@@ -30,5 +30,14 @@ mod tests {
             bytes_to_hex(&xor(&a, &b)),
             "746865206b696420646f6e277420706c6179"
         );
+    }
+
+    #[test]
+    fn test_challenge_3() {
+        let ct =
+            hex_to_bytes("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
+                .unwrap();
+        let (_, _, pt) = frequency_analysis(&ct).unwrap();
+        assert_eq!(pt, b"Cooking MC's like a pound of bacon")
     }
 }
