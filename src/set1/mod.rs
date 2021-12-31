@@ -2,6 +2,8 @@
 mod tests {
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
     use crate::shared::xor::{frequency_analysis, xor};
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
 
     #[test]
     fn test_challenge_1() {
@@ -39,5 +41,16 @@ mod tests {
                 .unwrap();
         let (_, _, pt) = frequency_analysis(&ct).unwrap();
         assert_eq!(pt, b"Cooking MC's like a pound of bacon")
+    }
+
+    #[test]
+    fn test_challenge_4() {
+        assert!(
+            BufReader::new(File::open("src/set1/challenge4.txt").unwrap())
+                .lines()
+                .filter_map(|line| line.ok())
+                .filter_map(|line| frequency_analysis(&hex_to_bytes(&line).unwrap()))
+                .any(|(_, _, pt)| pt == b"Now that the party is jumping\n")
+        );
     }
 }
