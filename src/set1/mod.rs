@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
+    use crate::shared::xor::xor;
 
     #[test]
     fn test_challenge_1() {
@@ -18,6 +19,16 @@ mod tests {
         assert_eq!(
             hex,
             "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
+        );
+    }
+
+    #[test]
+    fn test_challenge_2() {
+        let a = hex_to_bytes("1c0111001f010100061a024b53535009181c").unwrap();
+        let b = hex_to_bytes("686974207468652062756c6c277320657965").unwrap();
+        assert_eq!(
+            bytes_to_hex(&xor(&a, &b)),
+            "746865206b696420646f6e277420706c6179"
         );
     }
 }
