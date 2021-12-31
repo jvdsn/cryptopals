@@ -9,8 +9,10 @@ pub fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b.iter()).map(|(x, y)| x ^ y).collect()
 }
 
-pub fn xor_with_key(bytes: &[u8], key: u8) -> Vec<u8> {
-    bytes.iter().map(|b| b ^ key).collect()
+pub fn xor_with_key(bytes: &[u8], key: &[u8]) -> Vec<u8> {
+    (0..bytes.len())
+        .map(|i| bytes[i] ^ key[i % key.len()])
+        .collect()
 }
 
 pub fn score(pt: &[u8], floor: f64) -> Option<f64> {
@@ -39,7 +41,7 @@ pub fn score(pt: &[u8], floor: f64) -> Option<f64> {
 pub fn frequency_analysis(ct: &[u8]) -> Option<(f64, u8, Vec<u8>)> {
     let floor = (0.01 / N).log10();
     (0..=255)
-        .map(|key| (key, xor_with_key(ct, key)))
+        .map(|key| (key, xor_with_key(ct, &[key])))
         .filter_map(|(key, pt)| score(&pt, floor).map(|score| (score, key, pt)))
         .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
 }

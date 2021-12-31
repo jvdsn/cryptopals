@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
-    use crate::shared::xor::{frequency_analysis, xor};
+    use crate::shared::xor::{frequency_analysis, xor, xor_with_key};
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
@@ -51,6 +51,17 @@ mod tests {
                 .filter_map(|line| line.ok())
                 .filter_map(|line| frequency_analysis(&hex_to_bytes(&line).unwrap()))
                 .any(|(_, _, pt)| pt == b"Now that the party is jumping\n")
+        );
+    }
+
+    #[test]
+    fn test_challenge_5() {
+        let pt = b"Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+        let key = b"ICE";
+        let ct = bytes_to_hex(&xor_with_key(pt, key));
+        assert_eq!(
+            ct,
+            "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
         );
     }
 }
