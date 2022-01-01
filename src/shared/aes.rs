@@ -1,5 +1,6 @@
 use aes::cipher::generic_array::GenericArray;
 use aes::{Aes128, BlockDecrypt, BlockEncrypt, NewBlockCipher};
+use std::collections::HashSet;
 
 pub fn ecb_encrypt(pt: &[u8], key: &[u8; 16]) -> Vec<u8> {
     assert_eq!(pt.len() % 16, 0);
@@ -23,4 +24,9 @@ pub fn ecb_decrypt(ct: &[u8], key: &[u8; 16]) -> Vec<u8> {
             pt_block.into_iter()
         })
         .collect()
+}
+
+pub fn is_ecb(ct: &[u8]) -> bool {
+    let blocks_set: HashSet<&[u8]> = ct.chunks_exact(16).collect();
+    blocks_set.len() < ct.len() / 16
 }

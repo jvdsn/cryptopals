@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::ecb_decrypt;
+    use crate::shared::aes::{ecb_decrypt, is_ecb};
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
     use crate::shared::xor::{
         break_xor_with_key, frequency_analysis, hamming_distance, xor, xor_with_key,
@@ -101,5 +101,16 @@ mod tests {
             .map(char::from)
             .collect::<String>()
             .starts_with("I'm back and I'm ringin' the bell \n"),)
+    }
+
+    #[test]
+    fn test_challenge_8() {
+        assert!(
+            BufReader::new(File::open("src/set1/challenge8.txt").unwrap())
+                .lines()
+                .filter_map(|line| line.ok())
+                .filter(|line| is_ecb(&hex_to_bytes(&line).unwrap()))
+                .all(|line| line.starts_with("d880619740a8a19b7840a8a31c810a3d"))
+        );
     }
 }
