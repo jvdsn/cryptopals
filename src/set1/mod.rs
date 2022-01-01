@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::shared::aes::ecb_decrypt;
     use crate::shared::conversion::{base64_to_bytes, bytes_to_base64, bytes_to_hex, hex_to_bytes};
     use crate::shared::xor::{
         break_xor_with_key, frequency_analysis, hamming_distance, xor, xor_with_key,
@@ -83,5 +84,22 @@ mod tests {
             break_xor_with_key(&ct, 40).unwrap(),
             b"Terminator X: Bring the noise"
         );
+    }
+
+    #[test]
+    fn test_challenge_7() {
+        let ct = base64_to_bytes(
+            &read_to_string("src/set1/challenge7.txt")
+                .unwrap()
+                .replace("\n", ""),
+        )
+        .unwrap();
+        let key = b"YELLOW SUBMARINE";
+        let pt = ecb_decrypt(&ct, key);
+        assert!(pt
+            .into_iter()
+            .map(char::from)
+            .collect::<String>()
+            .starts_with("I'm back and I'm ringin' the bell \n"),)
     }
 }
