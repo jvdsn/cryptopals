@@ -96,11 +96,9 @@ mod tests {
         .unwrap();
         let key = b"YELLOW SUBMARINE";
         let pt = ecb_decrypt(&ct, key);
-        assert!(pt
-            .into_iter()
-            .map(char::from)
-            .collect::<String>()
-            .starts_with("I'm back and I'm ringin' the bell \n"),)
+        assert!(String::from_utf8(pt)
+            .unwrap()
+            .starts_with("I'm back and I'm ringin' the bell \n"));
     }
 
     #[test]
