@@ -110,3 +110,12 @@ pub fn ecb_oracle(pt: &[u8], unknown: &[u8], key: &[u8]) -> Vec<u8> {
     let padded = pad_pkcs7(&unpadded, 16);
     ecb_encrypt(&padded, key)
 }
+
+pub fn ecb_oracle_harder(random_prefix: &[u8], pt: &[u8], unknown: &[u8], key: &[u8]) -> Vec<u8> {
+    let mut unpadded = Vec::with_capacity(random_prefix.len() + pt.len() + unknown.len());
+    unpadded.extend_from_slice(random_prefix);
+    unpadded.extend_from_slice(pt);
+    unpadded.extend_from_slice(unknown);
+    let padded = pad_pkcs7(&unpadded, 16);
+    ecb_encrypt(&padded, key)
+}

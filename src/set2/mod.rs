@@ -1,12 +1,16 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::aes::{
-        cbc_decrypt, ecb_decrypt, ecb_encrypt, ecb_oracle, encrypt_ecb_or_cbc, is_ecb, random_key,
+        cbc_decrypt, ecb_decrypt, ecb_encrypt, ecb_oracle, ecb_oracle_harder, encrypt_ecb_or_cbc,
+        is_ecb, random_key,
     };
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::key_value::parse_key_value;
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
+    use crate::shared::random_bytes;
+    use rand::Rng;
     use std::fs::read_to_string;
+    use std::iter::repeat;
 
     #[test]
     fn test_challenge_9() {
@@ -73,7 +77,7 @@ mod tests {
             let end2 = end1 + padding_len + recovered.len() + 1;
             let byte = (0..=255).find(|&b| {
                 pt[byte_index] = b;
-                ct = ecb_oracle(&pt, &unknown, &key);
+                let ct = ecb_oracle(&pt, &unknown, &key);
                 ct[end1 - block_size..end1] == ct[end2 - block_size..end2]
             });
             if byte.is_some() {
@@ -118,5 +122,67 @@ mod tests {
         assert_eq!(map.get("email").unwrap(), "evil@evil.com");
         assert_eq!(map.get("uid").unwrap(), "10");
         assert_eq!(map.get("role").unwrap(), "admin");
+    }
+
+    #[test]
+    fn test_challenge_14() {
+        let unknown = base64_to_bytes(
+            &read_to_string("src/set2/challenge12.txt")
+                .unwrap()
+                .replace("\n", ""),
+        )
+        .unwrap();
+        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let random_prefix = random_bytes(rng.gen_range(0..16));
+        // Assuming block size is already known.
+        let block_size = 16;
+        // Discovering random prefix length.
+        let check: Vec<u8> = repeat(1).take(2 * block_size).collect();
+        let mut prefix_padding: Vec<u8> = repeat(0).take(block_size).collect();
+        while prefix_padding.len() > 0 {
+            let mut pt = Vec::with_capacity(check.len() + prefix_padding.len());
+            pt.extend_from_slice(&prefix_padding);
+            pt.extend_from_slice(&check);
+            let ct = ecb_oracle_harder(&random_prefix, &pt, &unknown, &key);
+            if ct[block_size..2 * block_size] == ct[2 * block_size..3 * block_size] {
+                break;
+            }
+            prefix_padding.pop();
+        }
+        assert_eq!(random_prefix.len() + prefix_padding.len(), block_size);
+
+        let mut recovered = Vec::new();
+        loop {
+            let padding_len = (block_size - 1) - (recovered.len() % block_size);
+            let mut pt = Vec::with_capacity(
+                prefix_padding.len() + padding_len + recovered.len() + 1 + padding_len,
+            );
+            pt.extend(&prefix_padding);
+            (0..padding_len).for_each(|_| pt.push(0));
+            pt.extend(&recovered);
+            pt.push(0);
+            (0..padding_len).for_each(|_| pt.push(0));
+            let byte_index = prefix_padding.len() + padding_len + recovered.len();
+            let end1 = block_size + padding_len + recovered.len() + 1;
+            let end2 = end1 + padding_len + recovered.len() + 1;
+            let byte = (0..=255).find(|&b| {
+                pt[byte_index] = b;
+                let ct = ecb_oracle_harder(&random_prefix, &pt, &unknown, &key);
+                ct[end1 - block_size..end1] == ct[end2 - block_size..end2]
+            });
+            if byte.is_some() {
+                recovered.push(byte.unwrap());
+                continue;
+            }
+
+            // This last byte will always be a padding byte.
+            recovered.pop();
+            break;
+        }
+
+        let recovered = String::from_utf8(recovered).unwrap();
+        assert!(recovered.starts_with("Rollin' in my 5.0\n"));
+        assert!(recovered.ends_with("Did you stop? No, I just drove by\n"));
     }
 }
