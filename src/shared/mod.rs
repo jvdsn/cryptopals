@@ -2,6 +2,7 @@ use rand::RngCore;
 
 pub mod aes;
 pub mod conversion;
+pub mod key_value;
 pub mod padding;
 pub mod xor;
 

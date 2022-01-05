@@ -1,8 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_decrypt, ecb_oracle, encrypt_ecb_or_cbc, is_ecb, random_key};
+    use crate::shared::aes::{
+        cbc_decrypt, ecb_decrypt, ecb_encrypt, ecb_oracle, encrypt_ecb_or_cbc, is_ecb, random_key,
+    };
     use crate::shared::conversion::base64_to_bytes;
-    use crate::shared::padding::pad_pkcs7;
+    use crate::shared::key_value::parse_key_value;
+    use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use std::fs::read_to_string;
 
     #[test]
@@ -86,5 +89,34 @@ mod tests {
         let recovered = String::from_utf8(recovered).unwrap();
         assert!(recovered.starts_with("Rollin' in my 5.0\n"));
         assert!(recovered.ends_with("Did you stop? No, I just drove by\n"));
+    }
+
+    #[test]
+    fn test_challenge_13() {
+        let map = parse_key_value("foo=bar&baz=qux&zap=zazzle");
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get("foo").unwrap(), "bar");
+        assert_eq!(map.get("baz").unwrap(), "qux");
+        assert_eq!(map.get("zap").unwrap(), "zazzle");
+
+        let key = random_key();
+        let ct1 = ecb_encrypt(
+            &pad_pkcs7(b"email=AAAAAAAAAAadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b&uid=10&role=user", 16),
+            &key,
+        );
+        let ct2 = ecb_encrypt(
+            &pad_pkcs7(b"email=evil@evil.com&uid=10&role=user", 16),
+            &key,
+        );
+        let mut ct = Vec::with_capacity(ct2.len());
+        ct.extend_from_slice(&ct2[0..16]);
+        ct.extend_from_slice(&ct2[16..32]);
+        ct.extend_from_slice(&ct1[16..32]);
+        let pt = unpad_pkcs7(&ecb_decrypt(&ct, &key), 16).unwrap();
+        let map = parse_key_value(&String::from_utf8(pt).unwrap());
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get("email").unwrap(), "evil@evil.com");
+        assert_eq!(map.get("uid").unwrap(), "10");
+        assert_eq!(map.get("role").unwrap(), "admin");
     }
 }
