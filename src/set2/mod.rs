@@ -185,4 +185,14 @@ mod tests {
         assert!(recovered.starts_with("Rollin' in my 5.0\n"));
         assert!(recovered.ends_with("Did you stop? No, I just drove by\n"));
     }
+
+    #[test]
+    pub fn test_challenge_15() {
+        assert_eq!(
+            unpad_pkcs7(b"ICE ICE BABY\x04\x04\x04\x04", 16),
+            Some(Vec::from("ICE ICE BABY"))
+        );
+        assert_eq!(unpad_pkcs7(b"ICE ICE BABY\x05\x05\x05\x05", 16), None);
+        assert_eq!(unpad_pkcs7(b"ICE ICE BABY\x01\x02\x03\x04", 16), None);
+    }
 }
