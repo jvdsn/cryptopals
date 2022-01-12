@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::aes::{
-        cbc_decrypt, ecb_decrypt, ecb_encrypt, ecb_oracle, ecb_oracle_harder, encrypt_ecb_or_cbc,
-        is_ecb, random_key,
+        cbc_decrypt, cbc_encrypt, ecb_decrypt, ecb_encrypt, ecb_oracle, ecb_oracle_harder,
+        encrypt_ecb_or_cbc, is_ecb, random_key,
     };
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::key_value::parse_key_value;
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use crate::shared::random_bytes;
+    use crate::shared::xor::xor;
     use rand::Rng;
     use std::fs::read_to_string;
     use std::iter::repeat;
@@ -187,12 +188,32 @@ mod tests {
     }
 
     #[test]
-    pub fn test_challenge_15() {
+    fn test_challenge_15() {
         assert_eq!(
             unpad_pkcs7(b"ICE ICE BABY\x04\x04\x04\x04", 16),
             Some(Vec::from("ICE ICE BABY"))
         );
         assert_eq!(unpad_pkcs7(b"ICE ICE BABY\x05\x05\x05\x05", 16), None);
         assert_eq!(unpad_pkcs7(b"ICE ICE BABY\x01\x02\x03\x04", 16), None);
+    }
+
+    #[test]
+    fn test_challenge_16() {
+        let key = random_key();
+        let iv = random_bytes(16);
+        let ct1 = cbc_encrypt(
+            &pad_pkcs7(b"comment1=cooking%20MCs;userdata=?admin?true;comment2=%20like%20a%20pound%20of%20bacon", 16),
+            &key,
+            &iv
+        );
+        let actual_pt = b"?admin?true;comm";
+        let target_pt = b";admin=true;comm";
+        let mut ct2 = Vec::with_capacity(ct1.len());
+        ct2.extend_from_slice(&ct1[0..16]);
+        ct2.extend_from_slice(&xor(&ct1[16..32], &xor(actual_pt, target_pt)));
+        ct2.extend_from_slice(&ct1[32..96]);
+        let pt = unpad_pkcs7(&cbc_decrypt(&ct2, &key, &iv), 16).unwrap();
+        // We need from_utf8_lossy here because the second block will be scrambled.
+        assert!(String::from_utf8_lossy(&pt).contains(";admin=true;"));
     }
 }
