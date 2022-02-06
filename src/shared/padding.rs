@@ -17,13 +17,14 @@ pub fn unpad_pkcs7(padded: &[u8], block_length: usize) -> Option<Vec<u8>> {
 
     padded.last().and_then(|&padding_byte| {
         let padding_length = usize::from(padding_byte);
-        if padded
-            .iter()
-            .rev()
-            .take(padding_length)
-            .filter(|&&b| b == padding_byte)
-            .count()
-            < padding_length
+        if padding_length == 0
+            || padded
+                .iter()
+                .rev()
+                .take(padding_length)
+                .filter(|&&b| b == padding_byte)
+                .count()
+                < padding_length
         {
             None
         } else {
