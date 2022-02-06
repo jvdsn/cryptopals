@@ -16,7 +16,7 @@ mod tests {
             F: Fn(&[u8], &[u8]) -> bool,
         {
             let mut r = Vec::new();
-            for i in (0..16).rev() {
+            (0..16).rev().for_each(|i| {
                 let s = vec![u8::try_from(16 - i).unwrap(); 16 - i];
                 let b = (0..=255)
                     .find(|&b| {
@@ -29,7 +29,7 @@ mod tests {
                         "Unable to find decryption for {s:?}, {iv:?}, and {ct:?}"
                     ));
                 r.insert(0, b);
-            }
+            });
             xor(iv, &r)
         }
 
@@ -46,7 +46,7 @@ mod tests {
             "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93",
         ];
 
-        for pt in pts {
+        pts.iter().for_each(|pt| {
             let pt = base64_to_bytes(pt).unwrap();
             let padded = pad_pkcs7(&pt, 16);
             let key = random_key();
@@ -54,16 +54,16 @@ mod tests {
             let ct = cbc_encrypt(&key, &iv, &padded);
 
             let mut pt_ = attack_block(|iv, ct| padding_oracle(&key, iv, ct), &iv, &ct[0..16]);
-            for i in (16..ct.len()).step_by(16) {
+            (16..ct.len()).step_by(16).for_each(|i| {
                 pt_.extend(attack_block(
                     |iv, ct| padding_oracle(&key, iv, ct),
                     &ct[i - 16..i],
                     &ct[i..i + 16],
                 ))
-            }
+            });
 
             assert_eq!(pt_, padded);
-        }
+        });
     }
 
     #[test]
