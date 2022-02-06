@@ -106,4 +106,31 @@ mod tests {
             "I have met them at c"
         );
     }
+
+    #[test]
+    fn test_challenge_20() {
+        let key = random_key();
+        let nonce = 0;
+        let pts: Vec<Vec<u8>> = BufReader::new(File::open("src/set3/challenge20.txt").unwrap())
+            .lines()
+            .filter_map(|line| line.ok())
+            .filter_map(|line| base64_to_bytes(&line))
+            .collect();
+        let cts: Vec<Vec<u8>> = pts.iter().map(|pt| ctr_encrypt(&key, nonce, pt)).collect();
+
+        let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
+        let ct = cts
+            .iter()
+            .map(|ct| &ct[..min_length])
+            .fold(Vec::new(), |mut accum, ct| {
+                accum.extend_from_slice(ct);
+                accum
+            });
+
+        let key_ = break_xor_with_key(&ct, min_length).unwrap();
+        assert_eq!(
+            String::from_utf8(xor(&cts[0][..min_length], &key_)).unwrap(),
+            "I'm rated \"R\"...this is a warning, ya better void / P"
+        );
+    }
 }
