@@ -88,14 +88,14 @@ mod tests {
 
     #[test]
     fn test_challenge_7() {
+        let key = b"YELLOW SUBMARINE";
         let ct = base64_to_bytes(
             &read_to_string("src/set1/challenge7.txt")
                 .unwrap()
                 .replace("\n", ""),
         )
         .unwrap();
-        let key = b"YELLOW SUBMARINE";
-        let pt = ecb_decrypt(&ct, key);
+        let pt = ecb_decrypt(key, &ct);
         assert!(String::from_utf8(pt)
             .unwrap()
             .starts_with("I'm back and I'm ringin' the bell \n"));

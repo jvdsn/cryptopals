@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, random_key};
+    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use crate::shared::random_bytes;
@@ -48,16 +48,12 @@ mod tests {
             let padded = pad_pkcs7(&pt, 16);
             let key = random_key();
             let iv = random_bytes(16);
-            let ct = cbc_encrypt(&padded, &key, &iv);
+            let ct = cbc_encrypt(&key, &iv, &padded);
 
-            let mut pt_ = attack_block(
-                |iv, ct| unpad_pkcs7(&cbc_decrypt(ct, &key, iv), 16).is_some(),
-                &iv,
-                &ct[0..16],
-            );
+            let mut pt_ = attack_block(|iv, ct| padding_oracle(&key, iv, ct), &iv, &ct[0..16]);
             for i in (16..ct.len()).step_by(16) {
                 pt_.extend(attack_block(
-                    |iv, ct| unpad_pkcs7(&cbc_decrypt(ct, &key, iv), 16).is_some(),
+                    |iv, ct| padding_oracle(&key, iv, ct),
                     &ct[i - 16..i],
                     &ct[i..i + 16],
                 ))

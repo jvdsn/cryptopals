@@ -21,15 +21,15 @@ mod tests {
 
     #[test]
     fn test_challenge_10() {
+        let key = b"YELLOW SUBMARINE";
+        let iv = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
         let ct = base64_to_bytes(
             &read_to_string("src/set2/challenge10.txt")
                 .unwrap()
                 .replace("\n", ""),
         )
         .unwrap();
-        let key = b"YELLOW SUBMARINE";
-        let iv = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        let pt = cbc_decrypt(&ct, key, iv);
+        let pt = cbc_decrypt(key, iv, &ct);
         assert!(String::from_utf8(pt)
             .unwrap()
             .starts_with("I'm back and I'm ringin' the bell \n"));
@@ -56,12 +56,12 @@ mod tests {
         // Discovering block size.
         let mut block_size = 1;
         let mut pt = vec![0, 0];
-        let mut ct = ecb_oracle(&pt, &unknown, &key);
+        let mut ct = ecb_oracle(&key, &pt, &unknown);
         while ct[0..block_size] != ct[block_size..2 * block_size] {
             block_size += 1;
             pt.push(0);
             pt.push(0);
-            ct = ecb_oracle(&pt, &unknown, &key);
+            ct = ecb_oracle(&key, &pt, &unknown);
         }
         assert_eq!(block_size, 16);
 
@@ -78,7 +78,7 @@ mod tests {
             let end2 = end1 + padding_len + recovered.len() + 1;
             let byte = (0..=255).find(|&b| {
                 pt[byte_index] = b;
-                let ct = ecb_oracle(&pt, &unknown, &key);
+                let ct = ecb_oracle(&key, &pt, &unknown);
                 ct[end1 - block_size..end1] == ct[end2 - block_size..end2]
             });
             if byte.is_some() {
@@ -106,18 +106,18 @@ mod tests {
 
         let key = random_key();
         let ct1 = ecb_encrypt(
-            &pad_pkcs7(b"email=AAAAAAAAAAadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b&uid=10&role=user", 16),
             &key,
+            &pad_pkcs7(b"email=AAAAAAAAAAadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b&uid=10&role=user", 16),
         );
         let ct2 = ecb_encrypt(
-            &pad_pkcs7(b"email=evil@evil.com&uid=10&role=user", 16),
             &key,
+            &pad_pkcs7(b"email=evil@evil.com&uid=10&role=user", 16),
         );
         let mut ct = Vec::with_capacity(ct2.len());
         ct.extend_from_slice(&ct2[0..16]);
         ct.extend_from_slice(&ct2[16..32]);
         ct.extend_from_slice(&ct1[16..32]);
-        let pt = unpad_pkcs7(&ecb_decrypt(&ct, &key), 16).unwrap();
+        let pt = unpad_pkcs7(&ecb_decrypt(&key, &ct), 16).unwrap();
         let map = parse_key_value(&String::from_utf8(pt).unwrap());
         assert_eq!(map.len(), 3);
         assert_eq!(map.get("email").unwrap(), "evil@evil.com");
@@ -145,7 +145,7 @@ mod tests {
             let mut pt = Vec::with_capacity(check.len() + prefix_padding.len());
             pt.extend_from_slice(&prefix_padding);
             pt.extend_from_slice(&check);
-            let ct = ecb_oracle_harder(&random_prefix, &pt, &unknown, &key);
+            let ct = ecb_oracle_harder(&key, &random_prefix, &pt, &unknown);
             if ct[block_size..2 * block_size] == ct[2 * block_size..3 * block_size] {
                 break;
             }
@@ -169,7 +169,7 @@ mod tests {
             let end2 = end1 + padding_len + recovered.len() + 1;
             let byte = (0..=255).find(|&b| {
                 pt[byte_index] = b;
-                let ct = ecb_oracle_harder(&random_prefix, &pt, &unknown, &key);
+                let ct = ecb_oracle_harder(&key, &random_prefix, &pt, &unknown);
                 ct[end1 - block_size..end1] == ct[end2 - block_size..end2]
             });
             if byte.is_some() {
@@ -202,9 +202,9 @@ mod tests {
         let key = random_key();
         let iv = random_bytes(16);
         let ct1 = cbc_encrypt(
-            &pad_pkcs7(b"comment1=cooking%20MCs;userdata=?admin?true;comment2=%20like%20a%20pound%20of%20bacon", 16),
             &key,
-            &iv
+            &iv,
+            &pad_pkcs7(b"comment1=cooking%20MCs;userdata=?admin?true;comment2=%20like%20a%20pound%20of%20bacon", 16),
         );
         let actual_pt = b"?admin?true;comm";
         let target_pt = b";admin=true;comm";
@@ -212,7 +212,7 @@ mod tests {
         ct2.extend_from_slice(&ct1[0..16]);
         ct2.extend_from_slice(&xor(&ct1[16..32], &xor(actual_pt, target_pt)));
         ct2.extend_from_slice(&ct1[32..96]);
-        let pt = unpad_pkcs7(&cbc_decrypt(&ct2, &key, &iv), 16).unwrap();
+        let pt = unpad_pkcs7(&cbc_decrypt(&key, &iv, &ct2), 16).unwrap();
         // We need from_utf8_lossy here because the second block will be scrambled.
         assert!(String::from_utf8_lossy(&pt).contains(";admin=true;"));
     }
