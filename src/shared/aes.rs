@@ -4,6 +4,7 @@ use crate::shared::xor::xor;
 use aes::cipher::generic_array::GenericArray;
 use aes::{Aes128, BlockDecrypt, BlockEncrypt, NewBlockCipher};
 use rand::Rng;
+use std::cmp::min;
 use std::collections::HashSet;
 
 pub fn random_key() -> Vec<u8> {
@@ -83,6 +84,31 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8]) -> Vec<u8> {
         i += 16;
     }
     pt
+}
+
+pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8]) -> Vec<u8> {
+    assert_eq!(key.len(), 16);
+    let aes128 = Aes128::new(GenericArray::from_slice(key));
+    let mut ct = Vec::with_capacity(pt.len());
+    let mut i = 0;
+    let mut counter = 0u64;
+    while i < pt.len() {
+        let mut keystream_block = GenericArray::default();
+        let (left, right) = keystream_block.split_at_mut(8);
+        left.copy_from_slice(&nonce.to_le_bytes());
+        right.copy_from_slice(&counter.to_le_bytes());
+        aes128.encrypt_block(&mut keystream_block);
+        let pt_block = &pt[i..min(i + 16, pt.len())];
+        let ct_block = xor(pt_block, &keystream_block[..pt_block.len()]);
+        ct.extend_from_slice(&ct_block);
+        i += 16;
+        counter += 1;
+    }
+    ct
+}
+
+pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8]) -> Vec<u8> {
+    ctr_encrypt(key, nonce, ct)
 }
 
 pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {

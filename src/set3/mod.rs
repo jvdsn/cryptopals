@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, padding_oracle, random_key};
+    use crate::shared::aes::{cbc_encrypt, ctr_decrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
-    use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
+    use crate::shared::padding::pad_pkcs7;
     use crate::shared::random_bytes;
     use crate::shared::xor::xor;
 
@@ -61,5 +61,20 @@ mod tests {
 
             assert_eq!(pt_, padded);
         }
+    }
+
+    #[test]
+    fn test_challenge_18() {
+        let key = b"YELLOW SUBMARINE";
+        let nonce = 0;
+        let ct = base64_to_bytes(
+            "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==",
+        )
+        .unwrap();
+        let pt = ctr_decrypt(key, nonce, &ct);
+        assert_eq!(
+            String::from_utf8(pt).unwrap(),
+            "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby "
+        );
     }
 }
