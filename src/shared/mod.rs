@@ -6,6 +6,7 @@ pub mod key_value;
 pub mod padding;
 pub mod xor;
 
+#[must_use]
 pub fn random_bytes(count: usize) -> Vec<u8> {
     let mut bytes = vec![0; count];
     rand::thread_rng().fill_bytes(&mut bytes);

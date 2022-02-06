@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[must_use]
 pub fn parse_key_value(input: &str) -> HashMap<String, String> {
     input
         .split('&')

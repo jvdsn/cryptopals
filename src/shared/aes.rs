@@ -7,10 +7,12 @@ use rand::Rng;
 use std::cmp::min;
 use std::collections::HashSet;
 
+#[must_use]
 pub fn random_key() -> Vec<u8> {
     random_bytes(16)
 }
 
+#[must_use]
 pub fn ecb_encrypt(key: &[u8], pt: &[u8]) -> Vec<u8> {
     assert_eq!(key.len(), 16);
     assert_eq!(pt.len() % 16, 0);
@@ -27,6 +29,7 @@ pub fn ecb_encrypt(key: &[u8], pt: &[u8]) -> Vec<u8> {
     ct
 }
 
+#[must_use]
 pub fn ecb_decrypt(key: &[u8], ct: &[u8]) -> Vec<u8> {
     assert_eq!(key.len(), 16);
     assert_eq!(ct.len() % 16, 0);
@@ -43,11 +46,13 @@ pub fn ecb_decrypt(key: &[u8], ct: &[u8]) -> Vec<u8> {
     pt
 }
 
+#[must_use]
 pub fn is_ecb(ct: &[u8]) -> bool {
     let blocks_set: HashSet<&[u8]> = ct.chunks_exact(16).collect();
     blocks_set.len() < ct.len() / 16
 }
 
+#[must_use]
 pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8]) -> Vec<u8> {
     assert_eq!(key.len(), 16);
     assert_eq!(iv.len(), 16);
@@ -67,6 +72,7 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8]) -> Vec<u8> {
     ct
 }
 
+#[must_use]
 pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8]) -> Vec<u8> {
     assert_eq!(key.len(), 16);
     assert_eq!(iv.len(), 16);
@@ -86,6 +92,7 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8]) -> Vec<u8> {
     pt
 }
 
+#[must_use]
 pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8]) -> Vec<u8> {
     assert_eq!(key.len(), 16);
     let aes128 = Aes128::new(GenericArray::from_slice(key));
@@ -107,10 +114,12 @@ pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8]) -> Vec<u8> {
     ct
 }
 
+#[must_use]
 pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8]) -> Vec<u8> {
     ctr_encrypt(key, nonce, ct)
 }
 
+#[must_use]
 pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {
     let key = random_key();
     let mut rng = rand::thread_rng();
@@ -129,6 +138,7 @@ pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {
     }
 }
 
+#[must_use]
 pub fn ecb_oracle(key: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
     let mut unpadded = Vec::with_capacity(pt.len() + unknown.len());
     unpadded.extend_from_slice(pt);
@@ -137,6 +147,7 @@ pub fn ecb_oracle(key: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
     ecb_encrypt(key, &padded)
 }
 
+#[must_use]
 pub fn ecb_oracle_harder(key: &[u8], random_prefix: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
     let mut unpadded = Vec::with_capacity(random_prefix.len() + pt.len() + unknown.len());
     unpadded.extend_from_slice(random_prefix);
@@ -146,6 +157,7 @@ pub fn ecb_oracle_harder(key: &[u8], random_prefix: &[u8], pt: &[u8], unknown: &
     ecb_encrypt(key, &padded)
 }
 
+#[must_use]
 pub fn padding_oracle(key: &[u8], iv: &[u8], ct: &[u8]) -> bool {
     unpad_pkcs7(&cbc_decrypt(key, iv, ct), 16).is_some()
 }

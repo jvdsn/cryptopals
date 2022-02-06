@@ -6,21 +6,25 @@ const LETTER_FREQUENCIES: [f64; 26] = [
 ];
 const N: f64 = 182_303.0;
 
+#[must_use]
 pub fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
     assert_eq!(a.len(), b.len());
     a.iter().zip(b.iter()).map(|(x, y)| x ^ y).collect()
 }
 
+#[must_use]
 pub fn xor_with_key(bytes: &[u8], key: &[u8]) -> Vec<u8> {
     (0..bytes.len())
         .map(|i| bytes[i] ^ key[i % key.len()])
         .collect()
 }
 
+#[must_use]
 pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     xor(a, b).iter().map(|x| x.count_ones()).fold(0, u32::add)
 }
 
+#[must_use]
 pub fn score(pt: &[u8], floor: f64) -> Option<f64> {
     // ASCII graphic and whitespace only.
     if !pt
@@ -42,6 +46,7 @@ pub fn score(pt: &[u8], floor: f64) -> Option<f64> {
     }))
 }
 
+#[must_use]
 pub fn frequency_analysis(ct: &[u8]) -> Option<(f64, u8, Vec<u8>)> {
     let floor = (0.01 / N).log10();
     (0..=255)
@@ -50,6 +55,7 @@ pub fn frequency_analysis(ct: &[u8]) -> Option<(f64, u8, Vec<u8>)> {
         .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
 }
 
+#[must_use]
 pub fn guess_key_sizes(ct: &[u8], max_key_size: usize) -> Vec<usize> {
     let mut key_sizes = (2..=max_key_size)
         .map(|key_size| {
@@ -75,6 +81,7 @@ pub fn guess_key_sizes(ct: &[u8], max_key_size: usize) -> Vec<usize> {
         .collect()
 }
 
+#[must_use]
 pub fn transpose(ct: &[u8], key_size: usize, offset: usize) -> Vec<u8> {
     let mut transposed = Vec::new();
     let mut i = 0;
@@ -85,6 +92,7 @@ pub fn transpose(ct: &[u8], key_size: usize, offset: usize) -> Vec<u8> {
     transposed
 }
 
+#[must_use]
 pub fn break_xor_with_key(ct: &[u8], max_key_size: usize) -> Option<Vec<u8>> {
     guess_key_sizes(ct, max_key_size)
         .into_iter()

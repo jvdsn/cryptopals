@@ -46,6 +46,7 @@ const BASE64_DECODE: [u8; 256] = [
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 ];
 
+#[must_use]
 pub fn bytes_to_hex(bytes: &[u8]) -> String {
     let mut hex = String::with_capacity(2 * bytes.len());
     let mut iter = bytes.iter();
@@ -60,6 +61,7 @@ pub fn bytes_to_hex(bytes: &[u8]) -> String {
     hex
 }
 
+#[must_use]
 pub fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
     let mut bytes = Vec::with_capacity(hex.len() / 2);
     let mut iter = hex.bytes();
@@ -86,6 +88,7 @@ pub fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
+#[must_use]
 pub fn bytes_to_base64(bytes: &[u8]) -> String {
     let mut base64 = String::with_capacity(4 * ((bytes.len() + 2) / 3));
     let mut iter = bytes.iter();
@@ -121,6 +124,7 @@ pub fn bytes_to_base64(bytes: &[u8]) -> String {
     base64
 }
 
+#[must_use]
 pub fn base64_to_bytes(base64: &str) -> Option<Vec<u8>> {
     let mut bytes = Vec::with_capacity(3 * (base64.len() / 4));
     let mut iter = base64.bytes();
