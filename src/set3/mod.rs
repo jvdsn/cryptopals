@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_encrypt, ctr_decrypt, padding_oracle, random_key};
+    use crate::shared::aes::{cbc_encrypt, ctr_decrypt, ctr_encrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::padding::pad_pkcs7;
     use crate::shared::random_bytes;
-    use crate::shared::xor::xor;
+    use crate::shared::xor::{break_xor_with_key, xor};
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
 
     #[test]
     fn test_challenge_17() {
@@ -75,6 +77,33 @@ mod tests {
         assert_eq!(
             String::from_utf8(pt).unwrap(),
             "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby "
+        );
+    }
+
+    #[test]
+    fn test_challenge_19() {
+        let key = random_key();
+        let nonce = 0;
+        let pts: Vec<Vec<u8>> = BufReader::new(File::open("src/set3/challenge19.txt").unwrap())
+            .lines()
+            .filter_map(|line| line.ok())
+            .filter_map(|line| base64_to_bytes(&line))
+            .collect();
+        let cts: Vec<Vec<u8>> = pts.iter().map(|pt| ctr_encrypt(&key, nonce, pt)).collect();
+
+        let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
+        let ct = cts
+            .iter()
+            .map(|ct| &ct[..min_length])
+            .fold(Vec::new(), |mut accum, ct| {
+                accum.extend_from_slice(ct);
+                accum
+            });
+
+        let key_ = break_xor_with_key(&ct, min_length).unwrap();
+        assert_eq!(
+            String::from_utf8(xor(&cts[0][..min_length], &key_)).unwrap(),
+            "I have met them at c"
         );
     }
 }
