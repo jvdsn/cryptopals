@@ -2,7 +2,7 @@
 mod tests {
     use crate::shared::aes::{cbc_encrypt, ctr_decrypt, ctr_encrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
-    use crate::shared::mersenne_twister::MersenneTwister;
+    use crate::shared::mersenne_twister::{clone_mt19937, MersenneTwister};
     use crate::shared::padding::pad_pkcs7;
     use crate::shared::random_bytes;
     use crate::shared::xor::{break_xor_with_key, xor};
@@ -167,5 +167,16 @@ mod tests {
             }
             candidate -= 1;
         }
+    }
+
+    #[test]
+    fn test_challenge_23() {
+        let mut mt = MersenneTwister::new_mt19937();
+        mt.seed(1812433253, 0);
+
+        let n = 624;
+        let y = (0..n).map(|_| mt.next().unwrap()).collect::<Vec<u32>>();
+        let mut mt_ = clone_mt19937(&y);
+        (0..n).for_each(|_| assert_eq!(mt_.next(), mt.next()))
     }
 }

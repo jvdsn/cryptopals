@@ -108,3 +108,46 @@ impl MersenneTwister {
         self.index = 0;
     }
 }
+
+fn reverse_left(y: u32, shift: u32, mask: u32) -> u32 {
+    let w = 32;
+    let mut y_ = 0;
+    (shift..w)
+        .step_by(usize::try_from(shift).unwrap())
+        .for_each(|i| {
+            let m = 2u32.pow(i) - 1;
+            y_ = (y ^ ((y_ << shift) & mask)) & m;
+        });
+    y_ = y ^ ((y_ << shift) & mask);
+    y_
+}
+
+fn reverse_right(y: u32, shift: u32, mask: u32) -> u32 {
+    let w = 32;
+    let mut y_ = 0;
+    (shift..w)
+        .step_by(usize::try_from(shift).unwrap())
+        .for_each(|i| {
+            let m = (2u32.pow(i) - 1) << (w - i);
+            y_ = (y ^ ((y_ >> shift) & mask)) & m;
+        });
+    y_ = y ^ ((y_ >> shift) & mask);
+    y_
+}
+
+#[must_use]
+pub fn clone_mt19937(y: &[u32]) -> MersenneTwister {
+    let mut mt = MersenneTwister::new_mt19937();
+    assert_eq!(y.len(), mt.n);
+    mt.index = 0;
+    while mt.index < mt.n {
+        let mut yi = y[mt.index];
+        yi = reverse_right(yi, mt.l, 0xFFFF_FFFF);
+        yi = reverse_left(yi, mt.t, mt.c);
+        yi = reverse_left(yi, mt.s, mt.b);
+        yi = reverse_right(yi, mt.u, mt.d);
+        mt.mt[mt.index] = yi;
+        mt.index += 1;
+    }
+    mt
+}
