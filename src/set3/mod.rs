@@ -2,6 +2,7 @@
 mod tests {
     use crate::shared::aes::{cbc_encrypt, ctr_decrypt, ctr_encrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
+    use crate::shared::mersenne_twister::MersenneTwister;
     use crate::shared::padding::pad_pkcs7;
     use crate::shared::random_bytes;
     use crate::shared::xor::{break_xor_with_key, xor};
@@ -132,5 +133,17 @@ mod tests {
             String::from_utf8(xor(&cts[0][..min_length], &key_)).unwrap(),
             "I'm rated \"R\"...this is a warning, ya better void / P"
         );
+    }
+
+    #[test]
+    fn test_challenge_21() {
+        let mut mt = MersenneTwister::new_mt19937();
+        assert_eq!(mt.next(), None);
+
+        mt.seed(1812433253, 0);
+        assert_eq!(mt.next().unwrap(), 2357136044);
+        assert_eq!(mt.next().unwrap(), 2546248239);
+        assert_eq!(mt.next().unwrap(), 3071714933);
+        assert_eq!(mt.next().unwrap(), 3626093760);
     }
 }
