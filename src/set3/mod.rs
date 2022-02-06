@@ -146,4 +146,26 @@ mod tests {
         assert_eq!(mt.next().unwrap(), 3071714933);
         assert_eq!(mt.next().unwrap(), 3626093760);
     }
+
+    #[test]
+    fn test_challenge_22() {
+        let mut mt = MersenneTwister::new_mt19937();
+        let millis = 1644182174875u64;
+        mt.seed(1812433253, millis as u32);
+
+        let output = mt.next();
+        let mut candidate = 1644182188326u64;
+        loop {
+            mt.seed(1812433253, candidate as u32);
+            if mt.next() == output {
+                assert_eq!(candidate, millis);
+                break;
+            }
+            if candidate < millis {
+                assert!(false);
+                break;
+            }
+            candidate -= 1;
+        }
+    }
 }
