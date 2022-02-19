@@ -10,7 +10,6 @@ mod tests {
     use crate::shared::xor::xor;
     use rand::Rng;
     use std::fs::read_to_string;
-    use std::iter::repeat;
 
     #[test]
     fn test_challenge_9() {
@@ -188,8 +187,8 @@ mod tests {
         // Assuming block size is already known.
         let block_size = 16;
         // Discovering random prefix length.
-        let check: Vec<u8> = repeat(1).take(2 * block_size).collect();
-        let mut prefix_padding: Vec<u8> = repeat(0).take(block_size).collect();
+        let check: Vec<u8> = vec![1; 2 * block_size];
+        let mut prefix_padding = vec![0; block_size];
         while prefix_padding.len() > 0 {
             let mut pt = Vec::with_capacity(check.len() + prefix_padding.len());
             pt.extend_from_slice(&prefix_padding);
