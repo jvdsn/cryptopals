@@ -109,6 +109,17 @@ pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8], pt: &mut [u8]) {
     ctr_encrypt(key, nonce, ct, pt)
 }
 
+pub fn ctr_edit(key: &[u8], nonce: u64, ct: &mut [u8], offset: usize, pt: &[u8]) {
+    assert_eq!(key.len(), 16);
+    assert_eq!(pt.len(), ct.len() - offset);
+    let aes128 = Aes128::new(GenericArray::from_slice(key));
+    ctr_keystream(aes128, nonce)
+        .skip(offset)
+        .take(pt.len())
+        .enumerate()
+        .for_each(|(i, k)| ct[i] = pt[i] ^ k);
+}
+
 #[must_use]
 pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {
     let key = random_key();
