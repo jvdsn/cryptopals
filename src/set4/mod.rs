@@ -5,7 +5,10 @@ mod tests {
     };
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
+    use crate::shared::random_bytes;
+    use crate::shared::sha1::sha1_mac;
     use crate::shared::xor::xor;
+    use rand::Rng;
     use std::fs::read_to_string;
 
     #[test]
@@ -88,5 +91,19 @@ mod tests {
         ct2.extend_from_slice(&ct1);
         let pt = decrypt(&ct2);
         assert_eq!(xor(&pt[0..16], &pt[32..48]), key);
+    }
+
+    #[test]
+    fn test_challenge_28() {
+        let key = random_bytes(rand::thread_rng().gen_range(0..16));
+        let msg1 = b"Lorem ipsum";
+        let msg2 = b"Lorem_ipsum";
+        let mut mac1 = [0u8; 20];
+        sha1_mac(&key, msg1, &mut mac1);
+        let mut mac2 = [0u8; 20];
+        sha1_mac(&key, msg1, &mut mac2);
+        assert_eq!(mac1, mac2);
+        sha1_mac(&key, msg2, &mut mac2);
+        assert_ne!(mac1, mac2);
     }
 }

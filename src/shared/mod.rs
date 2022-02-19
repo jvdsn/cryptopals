@@ -5,6 +5,7 @@ pub mod conversion;
 pub mod key_value;
 pub mod mersenne_twister;
 pub mod padding;
+pub mod sha1;
 pub mod xor;
 
 #[must_use]
