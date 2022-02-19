@@ -1,3 +1,6 @@
+use crate::shared::xor::xor;
+use std::cmp::min;
+
 pub struct MersenneTwister {
     w: u32,
     n: usize,
@@ -150,4 +153,25 @@ pub fn clone_mt19937(y: &[u32]) -> MersenneTwister {
         mt.index += 1;
     }
     mt
+}
+
+#[must_use]
+pub fn encrypt(key: u16, pt: &[u8]) -> Vec<u8> {
+    let mut mt = MersenneTwister::new_mt19937();
+    mt.seed(1812433253, key as u32);
+    let mut ct = Vec::with_capacity(pt.len());
+    let mut i = 0;
+    while i < pt.len() {
+        let keystream_block = mt.next().unwrap().to_be_bytes();
+        let pt_block = &pt[i..min(i + 4, pt.len())];
+        let ct_block = xor(pt_block, &keystream_block[..pt_block.len()]);
+        ct.extend_from_slice(&ct_block);
+        i += 4;
+    }
+    ct
+}
+
+#[must_use]
+pub fn decrypt(key: u16, ct: &[u8]) -> Vec<u8> {
+    encrypt(key, ct)
 }

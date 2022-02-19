@@ -2,10 +2,11 @@
 mod tests {
     use crate::shared::aes::{cbc_encrypt, ctr_decrypt, ctr_encrypt, padding_oracle, random_key};
     use crate::shared::conversion::base64_to_bytes;
-    use crate::shared::mersenne_twister::{clone_mt19937, MersenneTwister};
+    use crate::shared::mersenne_twister::{clone_mt19937, encrypt, MersenneTwister};
     use crate::shared::padding::pad_pkcs7;
     use crate::shared::random_bytes;
     use crate::shared::xor::{break_xor_with_key, xor};
+    use rand::Rng;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
@@ -178,5 +179,25 @@ mod tests {
         let y = (0..n).map(|_| mt.next().unwrap()).collect::<Vec<u32>>();
         let mut mt_ = clone_mt19937(&y);
         (0..n).for_each(|_| assert_eq!(mt_.next(), mt.next()))
+    }
+
+    #[test]
+    fn test_challenge_24() {
+        // Make the key quite small so this test passes faster.
+        let key = 1234;
+        let mut rng = rand::thread_rng();
+        let pad_len = rng.gen_range(0..16);
+        let mut pt = Vec::with_capacity(pad_len + 14);
+        pt.extend_from_slice(&random_bytes(pad_len));
+        pt.extend_from_slice(b"AAAAAAAAAAAAAA");
+        let ct = encrypt(key, &pt);
+
+        let pad_len = ct.len() - 14;
+        let mut pt = Vec::with_capacity(ct.len());
+        pt.extend_from_slice(&random_bytes(pad_len));
+        pt.extend_from_slice(b"AAAAAAAAAAAAAA");
+        assert!((0..=65535)
+            .find(|&k| { encrypt(k, &pt)[pad_len..] == ct[pad_len..] })
+            .is_some());
     }
 }
