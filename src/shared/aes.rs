@@ -5,7 +5,6 @@ use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 use rand::Rng;
-use std::cmp::min;
 use std::collections::HashSet;
 
 #[must_use]
@@ -85,24 +84,25 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8], pt: &mut [u8]) {
     }
 }
 
+fn ctr_keystream(aes128: Aes128, nonce: u64) -> impl Iterator<Item = u8> {
+    (0u64..).flat_map(move |count| {
+        let mut keystream_block = GenericArray::default();
+        let (left, right) = keystream_block.split_at_mut(8);
+        left.copy_from_slice(&nonce.to_le_bytes());
+        right.copy_from_slice(&count.to_le_bytes());
+        aes128.encrypt_block(&mut keystream_block);
+        keystream_block
+    })
+}
+
 pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8], ct: &mut [u8]) {
     assert_eq!(key.len(), 16);
     assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut i = 0;
-    let mut counter = 0u64;
-    while i < pt.len() {
-        let mut keystream_block = GenericArray::default();
-        let (left, right) = keystream_block.split_at_mut(8);
-        left.copy_from_slice(&nonce.to_le_bytes());
-        right.copy_from_slice(&counter.to_le_bytes());
-        aes128.encrypt_block(&mut keystream_block);
-        let pt_block = &pt[i..min(i + 16, pt.len())];
-        let ct_block = xor(pt_block, &keystream_block[..pt_block.len()]);
-        ct[i..min(i + 16, pt.len())].copy_from_slice(ct_block.as_slice());
-        i += 16;
-        counter += 1;
-    }
+    ctr_keystream(aes128, nonce)
+        .take(pt.len())
+        .enumerate()
+        .for_each(|(i, k)| ct[i] = pt[i] ^ k);
 }
 
 pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8], pt: &mut [u8]) {
