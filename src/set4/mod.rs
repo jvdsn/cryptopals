@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{ctr_decrypt, ctr_edit, ctr_encrypt, ecb_decrypt, random_key};
+    use crate::shared::aes::{
+        cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_edit, ctr_encrypt, ecb_decrypt, random_key,
+    };
     use crate::shared::conversion::base64_to_bytes;
+    use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
+    use crate::shared::xor::xor;
     use std::fs::read_to_string;
 
     #[test]
@@ -58,5 +62,31 @@ mod tests {
         let target_pt = b";admin=true";
         (0..actual_pt.len()).for_each(|i| ct[prefix.len() + i] ^= actual_pt[i] ^ target_pt[i]);
         assert!(decrypt(&ct));
+    }
+
+    #[test]
+    fn test_challenge_27() {
+        let key = random_key();
+        let iv = key.clone();
+        let encrypt = |pt: &[u8]| {
+            let pt = pad_pkcs7(&pt, 16);
+            let mut ct = vec![0; pt.len()];
+            cbc_encrypt(&key, &iv, &pt, &mut ct);
+            ct
+        };
+        let decrypt = |ct: &[u8]| {
+            let mut pt = vec![0; ct.len()];
+            cbc_decrypt(&key, &iv, &ct, &mut pt);
+            let pt = unpad_pkcs7(&pt, 16).unwrap();
+            pt
+        };
+
+        let ct1 = encrypt(&vec![0; 48]);
+        let mut ct2 = Vec::with_capacity(ct1.len());
+        ct2.extend_from_slice(&ct1[0..16]);
+        ct2.extend_from_slice(&[0; 16]);
+        ct2.extend_from_slice(&ct1);
+        let pt = decrypt(&ct2);
+        assert_eq!(xor(&pt[0..16], &pt[32..48]), key);
     }
 }
