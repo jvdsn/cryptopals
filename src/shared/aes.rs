@@ -1,10 +1,8 @@
-use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
 use crate::shared::random_bytes;
 use crate::shared::xor::xor;
 use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
-use rand::Rng;
 use std::collections::HashSet;
 
 #[must_use]
@@ -118,56 +116,4 @@ pub fn ctr_edit(key: &[u8], nonce: u64, ct: &mut [u8], offset: usize, pt: &[u8])
         .take(pt.len())
         .enumerate()
         .for_each(|(i, k)| ct[i] = pt[i] ^ k);
-}
-
-#[must_use]
-pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {
-    let key = random_key();
-    let mut rng = rand::thread_rng();
-    let mut prefix = random_bytes(rng.gen_range(5..=10));
-    let mut suffix = random_bytes(rng.gen_range(5..=10));
-    let mut unpadded = Vec::with_capacity(prefix.len() + pt.len() + suffix.len());
-    unpadded.append(&mut prefix);
-    unpadded.extend_from_slice(pt);
-    unpadded.append(&mut suffix);
-    let padded = pad_pkcs7(&unpadded, 16);
-    let mut ct = vec![0; padded.len()];
-    if rng.gen::<bool>() {
-        ecb_encrypt(&key, &padded, &mut ct);
-        (ct, true)
-    } else {
-        let iv = random_bytes(16);
-        cbc_encrypt(&key, &iv, &padded, &mut ct);
-        (ct, false)
-    }
-}
-
-#[must_use]
-pub fn ecb_oracle(key: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
-    let mut unpadded = Vec::with_capacity(pt.len() + unknown.len());
-    unpadded.extend_from_slice(pt);
-    unpadded.extend_from_slice(unknown);
-    let padded = pad_pkcs7(&unpadded, 16);
-    let mut ct = vec![0; padded.len()];
-    ecb_encrypt(key, &padded, &mut ct);
-    ct
-}
-
-#[must_use]
-pub fn ecb_oracle_harder(key: &[u8], random_prefix: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
-    let mut unpadded = Vec::with_capacity(random_prefix.len() + pt.len() + unknown.len());
-    unpadded.extend_from_slice(random_prefix);
-    unpadded.extend_from_slice(pt);
-    unpadded.extend_from_slice(unknown);
-    let padded = pad_pkcs7(&unpadded, 16);
-    let mut ct = vec![0; padded.len()];
-    ecb_encrypt(key, &padded, &mut ct);
-    ct
-}
-
-#[must_use]
-pub fn padding_oracle(key: &[u8], iv: &[u8], ct: &[u8]) -> bool {
-    let mut pt = vec![0; ct.len()];
-    cbc_decrypt(key, iv, ct, &mut pt);
-    unpad_pkcs7(&pt, 16).is_some()
 }

@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_encrypt, ctr_decrypt, ctr_encrypt, padding_oracle, random_key};
+    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_encrypt, random_key};
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::mersenne_twister::{clone_mt19937, encrypt, MersenneTwister};
-    use crate::shared::padding::pad_pkcs7;
+    use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use crate::shared::random_bytes;
     use crate::shared::xor::{break_xor_with_key, xor};
     use rand::Rng;
@@ -55,13 +55,15 @@ mod tests {
             let mut ct = vec![0; padded.len()];
             cbc_encrypt(&key, &iv, &padded, &mut ct);
 
-            let mut pt_ = attack_block(|iv, ct| padding_oracle(&key, iv, ct), &iv, &ct[0..16]);
+            let padding_oracle = |iv: &[u8], ct: &[u8]| {
+                let mut pt = vec![0; ct.len()];
+                cbc_decrypt(&key, iv, ct, &mut pt);
+                unpad_pkcs7(&pt, 16).is_some()
+            };
+
+            let mut pt_ = attack_block(padding_oracle, &iv, &ct[0..16]);
             (16..ct.len()).step_by(16).for_each(|i| {
-                pt_.extend(attack_block(
-                    |iv, ct| padding_oracle(&key, iv, ct),
-                    &ct[i - 16..i],
-                    &ct[i..i + 16],
-                ))
+                pt_.extend(attack_block(padding_oracle, &ct[i - 16..i], &ct[i..i + 16]))
             });
 
             assert_eq!(pt_, padded);
