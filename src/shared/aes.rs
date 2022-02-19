@@ -12,38 +12,34 @@ pub fn random_key() -> Vec<u8> {
     random_bytes(16)
 }
 
-#[must_use]
-pub fn ecb_encrypt(key: &[u8], pt: &[u8]) -> Vec<u8> {
+pub fn ecb_encrypt(key: &[u8], pt: &[u8], ct: &mut [u8]) {
     assert_eq!(key.len(), 16);
     assert_eq!(pt.len() % 16, 0);
+    assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut ct = Vec::with_capacity(pt.len());
     let mut i = 0;
     while i < pt.len() {
         let pt_block = &pt[i..i + 16];
         let mut ct_block = GenericArray::clone_from_slice(pt_block);
         aes128.encrypt_block(&mut ct_block);
-        ct.extend_from_slice(ct_block.as_slice());
+        ct[i..i + 16].copy_from_slice(ct_block.as_slice());
         i += 16;
     }
-    ct
 }
 
-#[must_use]
-pub fn ecb_decrypt(key: &[u8], ct: &[u8]) -> Vec<u8> {
+pub fn ecb_decrypt(key: &[u8], ct: &[u8], pt: &mut [u8]) {
     assert_eq!(key.len(), 16);
     assert_eq!(ct.len() % 16, 0);
+    assert_eq!(pt.len(), ct.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut pt = Vec::with_capacity(ct.len());
     let mut i = 0;
     while i < ct.len() {
         let ct_block = &ct[i..i + 16];
         let mut pt_block = GenericArray::clone_from_slice(ct_block);
         aes128.decrypt_block(&mut pt_block);
-        pt.extend_from_slice(pt_block.as_slice());
+        pt[i..i + 16].copy_from_slice(pt_block.as_slice());
         i += 16;
     }
-    pt
 }
 
 #[must_use]
@@ -52,13 +48,12 @@ pub fn is_ecb(ct: &[u8]) -> bool {
     blocks_set.len() < ct.len() / 16
 }
 
-#[must_use]
-pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8]) -> Vec<u8> {
+pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8], ct: &mut [u8]) {
     assert_eq!(key.len(), 16);
     assert_eq!(iv.len(), 16);
     assert_eq!(pt.len() % 16, 0);
+    assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut ct = Vec::with_capacity(pt.len());
     let mut i = 0;
     while i < pt.len() {
         let pt_block = &pt[i..i + 16];
@@ -66,19 +61,17 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8]) -> Vec<u8> {
         let ct_block = xor(pt_block, prev_ct_block);
         let mut ct_block = GenericArray::clone_from_slice(&ct_block);
         aes128.encrypt_block(&mut ct_block);
-        ct.extend_from_slice(ct_block.as_slice());
+        ct[i..i + 16].copy_from_slice(ct_block.as_slice());
         i += 16;
     }
-    ct
 }
 
-#[must_use]
-pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8]) -> Vec<u8> {
+pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8], pt: &mut [u8]) {
     assert_eq!(key.len(), 16);
     assert_eq!(iv.len(), 16);
     assert_eq!(ct.len() % 16, 0);
+    assert_eq!(pt.len(), ct.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut pt = Vec::with_capacity(ct.len());
     let mut i = 0;
     while i < ct.len() {
         let ct_block = &ct[i..i + 16];
@@ -86,17 +79,15 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8]) -> Vec<u8> {
         aes128.decrypt_block(&mut pt_block);
         let prev_ct_block = if i < 16 { iv } else { &ct[i - 16..i] };
         let pt_block = xor(pt_block.as_slice(), prev_ct_block);
-        pt.extend_from_slice(&pt_block);
+        pt[i..i + 16].copy_from_slice(pt_block.as_slice());
         i += 16;
     }
-    pt
 }
 
-#[must_use]
-pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8]) -> Vec<u8> {
+pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8], ct: &mut [u8]) {
     assert_eq!(key.len(), 16);
+    assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
-    let mut ct = Vec::with_capacity(pt.len());
     let mut i = 0;
     let mut counter = 0u64;
     while i < pt.len() {
@@ -107,16 +98,14 @@ pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8]) -> Vec<u8> {
         aes128.encrypt_block(&mut keystream_block);
         let pt_block = &pt[i..min(i + 16, pt.len())];
         let ct_block = xor(pt_block, &keystream_block[..pt_block.len()]);
-        ct.extend_from_slice(&ct_block);
+        ct[i..min(i + 16, pt.len())].copy_from_slice(ct_block.as_slice());
         i += 16;
         counter += 1;
     }
-    ct
 }
 
-#[must_use]
-pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8]) -> Vec<u8> {
-    ctr_encrypt(key, nonce, ct)
+pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8], pt: &mut [u8]) {
+    ctr_encrypt(key, nonce, ct, pt)
 }
 
 #[must_use]
@@ -130,11 +119,14 @@ pub fn encrypt_ecb_or_cbc(pt: &[u8]) -> (Vec<u8>, bool) {
     unpadded.extend_from_slice(pt);
     unpadded.append(&mut suffix);
     let padded = pad_pkcs7(&unpadded, 16);
+    let mut ct = vec![0; padded.len()];
     if rng.gen::<bool>() {
-        (ecb_encrypt(&key, &padded), true)
+        ecb_encrypt(&key, &padded, &mut ct);
+        (ct, true)
     } else {
         let iv = random_bytes(16);
-        (cbc_encrypt(&key, &iv, &padded), false)
+        cbc_encrypt(&key, &iv, &padded, &mut ct);
+        (ct, false)
     }
 }
 
@@ -144,7 +136,9 @@ pub fn ecb_oracle(key: &[u8], pt: &[u8], unknown: &[u8]) -> Vec<u8> {
     unpadded.extend_from_slice(pt);
     unpadded.extend_from_slice(unknown);
     let padded = pad_pkcs7(&unpadded, 16);
-    ecb_encrypt(key, &padded)
+    let mut ct = vec![0; padded.len()];
+    ecb_encrypt(key, &padded, &mut ct);
+    ct
 }
 
 #[must_use]
@@ -154,10 +148,14 @@ pub fn ecb_oracle_harder(key: &[u8], random_prefix: &[u8], pt: &[u8], unknown: &
     unpadded.extend_from_slice(pt);
     unpadded.extend_from_slice(unknown);
     let padded = pad_pkcs7(&unpadded, 16);
-    ecb_encrypt(key, &padded)
+    let mut ct = vec![0; padded.len()];
+    ecb_encrypt(key, &padded, &mut ct);
+    ct
 }
 
 #[must_use]
 pub fn padding_oracle(key: &[u8], iv: &[u8], ct: &[u8]) -> bool {
-    unpad_pkcs7(&cbc_decrypt(key, iv, ct), 16).is_some()
+    let mut pt = vec![0; ct.len()];
+    cbc_decrypt(key, iv, ct, &mut pt);
+    unpad_pkcs7(&pt, 16).is_some()
 }

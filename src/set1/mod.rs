@@ -95,7 +95,8 @@ mod tests {
                 .replace("\n", ""),
         )
         .unwrap();
-        let pt = ecb_decrypt(key, &ct);
+        let mut pt = vec![0; ct.len()];
+        ecb_decrypt(key, &ct, &mut pt);
         assert!(String::from_utf8(pt)
             .unwrap()
             .starts_with("I'm back and I'm ringin' the bell \n"));

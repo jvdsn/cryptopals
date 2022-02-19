@@ -16,7 +16,7 @@ mod tests {
         where
             F: Fn(&[u8], &[u8]) -> bool,
         {
-            let mut r = Vec::new();
+            let mut r = Vec::with_capacity(ct.len());
             (0..16).rev().for_each(|i| {
                 let s = vec![u8::try_from(16 - i).unwrap(); 16 - i];
                 let b = (0..=255)
@@ -52,7 +52,8 @@ mod tests {
             let padded = pad_pkcs7(&pt, 16);
             let key = random_key();
             let iv = random_bytes(16);
-            let ct = cbc_encrypt(&key, &iv, &padded);
+            let mut ct = vec![0; padded.len()];
+            cbc_encrypt(&key, &iv, &padded, &mut ct);
 
             let mut pt_ = attack_block(|iv, ct| padding_oracle(&key, iv, ct), &iv, &ct[0..16]);
             (16..ct.len()).step_by(16).for_each(|i| {
@@ -75,7 +76,8 @@ mod tests {
             "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==",
         )
         .unwrap();
-        let pt = ctr_decrypt(key, nonce, &ct);
+        let mut pt = vec![0; ct.len()];
+        ctr_decrypt(key, nonce, &ct, &mut pt);
         assert_eq!(
             String::from_utf8(pt).unwrap(),
             "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby "
@@ -91,7 +93,14 @@ mod tests {
             .filter_map(|line| line.ok())
             .filter_map(|line| base64_to_bytes(&line))
             .collect();
-        let cts: Vec<Vec<u8>> = pts.iter().map(|pt| ctr_encrypt(&key, nonce, pt)).collect();
+        let cts: Vec<Vec<u8>> = pts
+            .iter()
+            .map(|pt| {
+                let mut ct = vec![0; pt.len()];
+                ctr_encrypt(&key, nonce, pt, &mut ct);
+                ct
+            })
+            .collect();
 
         let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
         let ct = cts
@@ -118,7 +127,14 @@ mod tests {
             .filter_map(|line| line.ok())
             .filter_map(|line| base64_to_bytes(&line))
             .collect();
-        let cts: Vec<Vec<u8>> = pts.iter().map(|pt| ctr_encrypt(&key, nonce, pt)).collect();
+        let cts: Vec<Vec<u8>> = pts
+            .iter()
+            .map(|pt| {
+                let mut ct = vec![0; pt.len()];
+                ctr_encrypt(&key, nonce, pt, &mut ct);
+                ct
+            })
+            .collect();
 
         let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
         let ct = cts
@@ -190,14 +206,19 @@ mod tests {
         let mut pt = Vec::with_capacity(pad_len + 14);
         pt.extend_from_slice(&random_bytes(pad_len));
         pt.extend_from_slice(b"AAAAAAAAAAAAAA");
-        let ct = encrypt(key, &pt);
+        let mut ct = vec![0; pt.len()];
+        encrypt(key, &pt, &mut ct);
 
         let pad_len = ct.len() - 14;
         let mut pt = Vec::with_capacity(ct.len());
         pt.extend_from_slice(&random_bytes(pad_len));
         pt.extend_from_slice(b"AAAAAAAAAAAAAA");
+        let mut ct_ = vec![0; pt.len()];
         assert!((0..=65535)
-            .find(|&k| { encrypt(k, &pt)[pad_len..] == ct[pad_len..] })
+            .find(|&k| {
+                encrypt(k, &pt, &mut ct_);
+                ct_[pad_len..] == ct[pad_len..]
+            })
             .is_some());
     }
 }

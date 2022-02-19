@@ -29,7 +29,8 @@ mod tests {
                 .replace("\n", ""),
         )
         .unwrap();
-        let pt = cbc_decrypt(key, iv, &ct);
+        let mut pt = vec![0; ct.len()];
+        cbc_decrypt(key, iv, &ct, &mut pt);
         assert!(String::from_utf8(pt)
             .unwrap()
             .starts_with("I'm back and I'm ringin' the bell \n"));
@@ -105,19 +106,22 @@ mod tests {
         assert_eq!(map.get("zap").unwrap(), "zazzle");
 
         let key = random_key();
-        let ct1 = ecb_encrypt(
-            &key,
-            &pad_pkcs7(b"email=AAAAAAAAAAadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b&uid=10&role=user", 16),
+        let pt1 = pad_pkcs7(
+            b"email=AAAAAAAAAAadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b&uid=10&role=user",
+            16,
         );
-        let ct2 = ecb_encrypt(
-            &key,
-            &pad_pkcs7(b"email=evil@evil.com&uid=10&role=user", 16),
-        );
+        let mut ct1 = vec![0; pt1.len()];
+        ecb_encrypt(&key, &pt1, &mut ct1);
+        let pt2 = pad_pkcs7(b"email=evil@evil.com&uid=10&role=user", 16);
+        let mut ct2 = vec![0; pt2.len()];
+        ecb_encrypt(&key, &pt2, &mut ct2);
         let mut ct = Vec::with_capacity(ct2.len());
         ct.extend_from_slice(&ct2[0..16]);
         ct.extend_from_slice(&ct2[16..32]);
         ct.extend_from_slice(&ct1[16..32]);
-        let pt = unpad_pkcs7(&ecb_decrypt(&key, &ct), 16).unwrap();
+        let mut pt = vec![0; ct.len()];
+        ecb_decrypt(&key, &ct, &mut pt);
+        let pt = unpad_pkcs7(&pt, 16).unwrap();
         let map = parse_key_value(&String::from_utf8(pt).unwrap());
         assert_eq!(map.len(), 3);
         assert_eq!(map.get("email").unwrap(), "evil@evil.com");
@@ -201,18 +205,18 @@ mod tests {
     fn test_challenge_16() {
         let key = random_key();
         let iv = random_bytes(16);
-        let ct1 = cbc_encrypt(
-            &key,
-            &iv,
-            &pad_pkcs7(b"comment1=cooking%20MCs;userdata=?admin?true;comment2=%20like%20a%20pound%20of%20bacon", 16),
-        );
+        let pt1 = pad_pkcs7(b"comment1=cooking%20MCs;userdata=?admin?true;comment2=%20like%20a%20pound%20of%20bacon", 16);
+        let mut ct1 = vec![0; pt1.len()];
+        cbc_encrypt(&key, &iv, &pt1, &mut ct1);
         let actual_pt = b"?admin?true;comm";
         let target_pt = b";admin=true;comm";
         let mut ct2 = Vec::with_capacity(ct1.len());
         ct2.extend_from_slice(&ct1[0..16]);
         ct2.extend_from_slice(&xor(&ct1[16..32], &xor(actual_pt, target_pt)));
         ct2.extend_from_slice(&ct1[32..96]);
-        let pt = unpad_pkcs7(&cbc_decrypt(&key, &iv, &ct2), 16).unwrap();
+        let mut pt = vec![0; ct2.len()];
+        cbc_decrypt(&key, &iv, &ct2, &mut pt);
+        let pt = unpad_pkcs7(&pt, 16).unwrap();
         // We need from_utf8_lossy here because the second block will be scrambled.
         assert!(String::from_utf8_lossy(&pt).contains(";admin=true;"));
     }
