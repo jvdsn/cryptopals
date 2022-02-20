@@ -216,11 +216,9 @@ mod tests {
         pt.extend_from_slice(&random_bytes(pad_len));
         pt.extend_from_slice(b"AAAAAAAAAAAAAA");
         let mut ct_ = vec![0; pt.len()];
-        assert!((0..=65535)
-            .find(|&k| {
-                encrypt(k, &pt, &mut ct_);
-                ct_[pad_len..] == ct[pad_len..]
-            })
-            .is_some());
+        assert!((0..=65535).any(|k| {
+            encrypt(k, &pt, &mut ct_);
+            ct_[pad_len..] == ct[pad_len..]
+        }));
     }
 }
