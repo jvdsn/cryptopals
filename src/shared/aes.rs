@@ -104,7 +104,7 @@ pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8], ct: &mut [u8]) {
 }
 
 pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8], pt: &mut [u8]) {
-    ctr_encrypt(key, nonce, ct, pt)
+    ctr_encrypt(key, nonce, ct, pt);
 }
 
 pub fn ctr_edit(key: &[u8], nonce: u64, ct: &mut [u8], offset: usize, pt: &[u8]) {

@@ -19,6 +19,7 @@ fn f(t: usize, b: u32, c: u32, d: u32) -> u32 {
 }
 
 impl SHA1 {
+    #[must_use]
     pub fn with(h0: u32, h1: u32, h2: u32, h3: u32, h4: u32) -> Self {
         let mut k = [0; 80];
         k[0..20].copy_from_slice(&[0x5A827999; 20]);

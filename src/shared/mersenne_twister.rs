@@ -76,7 +76,7 @@ impl MersenneTwister {
             self.mt[i] = f
                 .wrapping_mul(self.mt[i - 1] ^ (self.mt[i - 1] >> (self.w - 2)))
                 .wrapping_add(u32::try_from(i).unwrap());
-        })
+        });
     }
 
     pub fn next(&mut self) -> Option<u32> {
@@ -159,7 +159,7 @@ fn mt_keystream(mut mt: MersenneTwister) -> impl Iterator<Item = u8> {
 pub fn encrypt(key: u16, pt: &[u8], ct: &mut [u8]) {
     assert_eq!(ct.len(), pt.len());
     let mut mt = MersenneTwister::new_mt19937();
-    mt.seed(1812433253, key as u32);
+    mt.seed(1812433253, u32::from(key));
     mt_keystream(mt)
         .take(pt.len())
         .enumerate()
@@ -167,5 +167,5 @@ pub fn encrypt(key: u16, pt: &[u8], ct: &mut [u8]) {
 }
 
 pub fn decrypt(key: u16, ct: &[u8], pt: &mut [u8]) {
-    encrypt(key, ct, pt)
+    encrypt(key, ct, pt);
 }

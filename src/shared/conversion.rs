@@ -55,7 +55,7 @@ pub fn bytes_to_hex(bytes: &[u8]) -> String {
         i += 1;
         let b = iter.next().unwrap();
         (0..2).for_each(|j| {
-            hex.push(HEX_ENCODE[usize::try_from((b >> ((1 - j) * 4)) % 16).unwrap()])
+            hex.push(HEX_ENCODE[usize::try_from((b >> ((1 - j) * 4)) % 16).unwrap()]);
         });
     }
     hex
