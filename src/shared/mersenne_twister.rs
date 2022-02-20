@@ -72,11 +72,11 @@ impl MersenneTwister {
     pub fn seed(&mut self, f: u32, seed: u32) {
         self.index = self.n;
         self.mt[0] = seed;
-        for i in 1..self.n {
+        (1..self.n).for_each(|i| {
             self.mt[i] = f
                 .wrapping_mul(self.mt[i - 1] ^ (self.mt[i - 1] >> (self.w - 2)))
                 .wrapping_add(u32::try_from(i).unwrap());
-        }
+        })
     }
 
     pub fn next(&mut self) -> Option<u32> {
@@ -97,14 +97,14 @@ impl MersenneTwister {
     }
 
     fn twist(&mut self) {
-        for i in 0..self.n {
+        (0..self.n).for_each(|i| {
             let x = (self.mt[i] & self.upper_mask) + (self.mt[(i + 1) % self.n] & self.lower_mask);
             let mut xa = x >> 1;
             if x % 2 != 0 {
                 xa ^= self.a;
             }
             self.mt[i] = self.mt[(i + self.m) % self.n] ^ xa;
-        }
+        });
         self.index = 0;
     }
 }
