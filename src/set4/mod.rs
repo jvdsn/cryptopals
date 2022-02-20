@@ -4,6 +4,7 @@ mod tests {
         cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_edit, ctr_encrypt, ecb_decrypt, random_key,
     };
     use crate::shared::conversion::base64_to_bytes;
+    use crate::shared::md4::{md4_mac, MD4};
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use crate::shared::random_bytes;
     use crate::shared::sha1::{sha1_mac, SHA1};
@@ -145,6 +146,48 @@ mod tests {
             msg.extend_from_slice(msg2);
             let mut mac = [0u8; 20];
             sha1_mac(&key, &msg, &mut mac);
+
+            return mac2 == mac;
+        }));
+    }
+
+    #[test]
+    fn test_challenge_30() {
+        let key = random_bytes(rand::thread_rng().gen_range(0..16));
+        let msg1 = b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
+        let mut mac1 = [0u8; 16];
+        md4_mac(&key, msg1, &mut mac1);
+
+        assert!((0..16).any(|key_len| {
+            let mut b = 8 * u64::try_from(key_len + msg1.len()).unwrap();
+            let rl = (key_len + msg1.len()) % 64;
+            let mut padding = Vec::new();
+            padding.push(0x80);
+            if rl > 64 - 1 - 8 {
+                padding.extend_from_slice(&vec![0; 128 - rl - 1 - 8]);
+            } else {
+                padding.extend_from_slice(&vec![0; 64 - rl - 1 - 8]);
+            }
+            padding.extend_from_slice(&b.to_le_bytes());
+            b += 8 * u64::try_from(padding.len()).unwrap();
+
+            let msg2 = b";admin=true";
+            b += 8 * u64::try_from(msg2.len()).unwrap();
+            let mut mac2 = [0u8; 16];
+            let mut md4 = MD4::with(
+                u32::from_le_bytes(mac1[0..4].try_into().unwrap()),
+                u32::from_le_bytes(mac1[4..8].try_into().unwrap()),
+                u32::from_le_bytes(mac1[8..12].try_into().unwrap()),
+                u32::from_le_bytes(mac1[12..16].try_into().unwrap()),
+            );
+            md4.hash_with_b(msg2, b, &mut mac2);
+
+            let mut msg = Vec::with_capacity(msg1.len() + padding.len() + msg2.len());
+            msg.extend_from_slice(msg1);
+            msg.extend_from_slice(&padding);
+            msg.extend_from_slice(msg2);
+            let mut mac = [0u8; 16];
+            md4_mac(&key, &msg, &mut mac);
 
             return mac2 == mac;
         }));
