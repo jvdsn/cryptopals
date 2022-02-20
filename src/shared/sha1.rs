@@ -73,35 +73,38 @@ impl SHA1 {
         self.h4 = self.h4.wrapping_add(e);
     }
 
-    fn process_bytes(&mut self, bytes: &[u8]) {
+    fn process_block(&mut self, block: &[u8]) {
         let mut m = [0; 16];
-        bytes
+        block
             .chunks_exact(4)
             .enumerate()
             .for_each(|(i, b)| m[i] = u32::from_be_bytes(b.try_into().unwrap()));
         self.process(m);
     }
 
-    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8]) {
+    fn process_last(&mut self, rem: &[u8], l: u64) {
+        let rl = rem.len();
+        let mut block = [0; 64];
+        block[0..rl].copy_from_slice(rem);
+        block[rl] = 0x80;
+        if rl > 64 - 1 - 8 {
+            self.process_block(&block);
+            block = [0; 64];
+        }
+        block[56..64].copy_from_slice(&l.to_be_bytes());
+        self.process_block(&block);
+    }
+
+    pub fn hash_with_l(&mut self, msg: &[u8], l: u64, hash: &mut [u8]) {
         assert_eq!(hash.len(), 20);
 
         // Processing M(i)
         let iter = msg.chunks_exact(64);
         let rem = iter.remainder();
-        iter.for_each(|bytes| self.process_bytes(bytes));
+        iter.for_each(|block| self.process_block(block));
 
         // Message padding
-        let l = 8 * u64::try_from(msg.len()).unwrap();
-        let rl = rem.len();
-        let mut bytes = [0; 64];
-        bytes[0..rl].copy_from_slice(rem);
-        bytes[rl] = 0x80;
-        if rl > 64 - 1 - 8 {
-            self.process_bytes(&bytes);
-            bytes = [0; 64];
-        }
-        bytes[56..64].copy_from_slice(&l.to_be_bytes());
-        self.process_bytes(&bytes);
+        self.process_last(rem, l);
 
         // Computing H0 H1 H2 H3 H4
         hash[0..4].copy_from_slice(&self.h0.to_be_bytes());
@@ -109,6 +112,11 @@ impl SHA1 {
         hash[8..12].copy_from_slice(&self.h2.to_be_bytes());
         hash[12..16].copy_from_slice(&self.h3.to_be_bytes());
         hash[16..20].copy_from_slice(&self.h4.to_be_bytes());
+    }
+
+    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8]) {
+        let l = 8 * u64::try_from(msg.len()).unwrap();
+        self.hash_with_l(msg, l, hash);
     }
 }
 
