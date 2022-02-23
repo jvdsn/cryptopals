@@ -1,3 +1,5 @@
+use crate::shared::xor::xor;
+
 pub struct SHA1 {
     k: [u32; 80],
     h0: u32,
@@ -133,4 +135,21 @@ pub fn sha1_mac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
     new_msg.extend_from_slice(msg);
 
     SHA1::default().hash(&new_msg, mac);
+}
+
+pub fn sha1_hmac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
+    let mut block_sized_key = [0; 64];
+    if key.len() <= 64 {
+        block_sized_key[0..key.len()].copy_from_slice(key);
+    } else {
+        SHA1::default().hash(key, &mut block_sized_key[0..20]);
+    }
+
+    let mut o_msg = [0x5c; 84];
+    xor(&mut o_msg[0..64], &block_sized_key);
+    let mut i_msg = vec![0x36; 64];
+    xor(&mut i_msg[0..64], &block_sized_key);
+    i_msg.extend_from_slice(msg);
+    SHA1::default().hash(&i_msg, &mut o_msg[64..84]);
+    SHA1::default().hash(&o_msg, mac);
 }

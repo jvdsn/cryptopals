@@ -7,7 +7,7 @@ mod tests {
     use crate::shared::md4::{md4_mac, MD4};
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
     use crate::shared::random_bytes;
-    use crate::shared::sha1::{sha1_mac, SHA1};
+    use crate::shared::sha1::{sha1_hmac, sha1_mac, SHA1};
     use crate::shared::xor::xor;
     use rand::Rng;
     use std::fs::read_to_string;
@@ -193,5 +193,46 @@ mod tests {
 
             return mac2 == mac;
         }));
+    }
+
+    #[test]
+    fn test_challenge_31() {
+        let key = random_key();
+        let insecure_compare = |a: &[u8], b: &[u8]| {
+            // HTTP overhead: 40-60 ms
+            let mut time = rand::thread_rng().gen_range(40..60);
+            if a.len() != b.len() {
+                return (false, time);
+            }
+
+            for (i, j) in a.iter().zip(b.iter()) {
+                if i != j {
+                    return (false, time);
+                }
+                time += 50;
+            }
+            (true, time)
+        };
+
+        let verify = |msg: &[u8], hmac: &[u8]| {
+            let mut computed_hmac = [0; 20];
+            sha1_hmac(&key, msg, &mut computed_hmac);
+            insecure_compare(hmac, &computed_hmac)
+        };
+
+        let msg = b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon;admin=true";
+        let mut hmac = [0; 20];
+        (0..20).for_each(|i| {
+            let (b, _) = (0..=255)
+                .map(|b| {
+                    hmac[i] = b;
+                    let (_, time) = verify(msg, &hmac);
+                    (b, time)
+                })
+                .max_by_key(|(_, time)| *time)
+                .unwrap();
+            hmac[i] = b;
+        });
+        assert!(verify(msg, &hmac).0);
     }
 }
