@@ -132,6 +132,5 @@ pub fn sha1_mac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
     new_msg.extend_from_slice(key);
     new_msg.extend_from_slice(msg);
 
-    let mut sha1 = SHA1::default();
-    sha1.hash(&new_msg, mac);
+    SHA1::default().hash(&new_msg, mac);
 }

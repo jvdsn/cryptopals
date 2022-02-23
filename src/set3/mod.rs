@@ -12,26 +12,26 @@ mod tests {
 
     #[test]
     fn test_challenge_17() {
-        fn attack_block<F>(padding_oracle: F, iv: &[u8], ct: &[u8]) -> Vec<u8>
+        fn attack_block<F>(padding_oracle: F, iv: &[u8], ct: &[u8], pt: &mut [u8])
         where
             F: Fn(&[u8], &[u8]) -> bool,
         {
-            let mut r = Vec::with_capacity(ct.len());
             (0..16).rev().for_each(|i| {
-                let s = vec![u8::try_from(16 - i).unwrap(); 16 - i];
+                let mut s = vec![u8::try_from(16 - i).unwrap(); 16 - i];
+                xor(&mut s[1..], &pt[i + 1..]);
                 let b = (0..=255)
                     .find(|&b| {
                         let mut iv_ = vec![0; i];
                         iv_.push(s[0] ^ b);
-                        iv_.extend(xor(&s[1..], &r));
+                        iv_.extend_from_slice(&s[1..]);
                         padding_oracle(&iv_, ct)
                     })
                     .expect(&format!(
                         "Unable to find decryption for {s:?}, {iv:?}, and {ct:?}"
                     ));
-                r.insert(0, b);
+                pt[i] = b;
             });
-            xor(iv, &r)
+            xor(pt, iv);
         }
 
         let pts = vec![
@@ -61,9 +61,15 @@ mod tests {
                 unpad_pkcs7(&pt, 16).is_some()
             };
 
-            let mut pt_ = attack_block(padding_oracle, &iv, &ct[0..16]);
+            let mut pt_ = vec![0; ct.len()];
+            attack_block(padding_oracle, &iv, &ct[0..16], &mut pt_[0..16]);
             (16..ct.len()).step_by(16).for_each(|i| {
-                pt_.extend(attack_block(padding_oracle, &ct[i - 16..i], &ct[i..i + 16]))
+                attack_block(
+                    padding_oracle,
+                    &ct[i - 16..i],
+                    &ct[i..i + 16],
+                    &mut pt_[i..i + 16],
+                )
             });
 
             assert_eq!(pt_, padded);
@@ -107,17 +113,19 @@ mod tests {
         let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
         let ct = cts
             .iter()
-            .map(|ct| &ct[..min_length])
+            .map(|ct| &ct[0..min_length])
             .fold(Vec::new(), |mut accum, ct| {
                 accum.extend_from_slice(ct);
                 accum
             });
 
         let key_ = break_xor_with_key(&ct, min_length).unwrap();
-        assert_eq!(
-            String::from_utf8(xor(&cts[0][..min_length], &key_)).unwrap(),
-            "I have met them at c"
-        );
+        let mut pt = cts[0][0..min_length].to_owned();
+        xor(&mut pt, &key_);
+        // We ignore case here because "I have met them at c" is as likely as "i have met them at c"
+        assert!(String::from_utf8(pt)
+            .unwrap()
+            .eq_ignore_ascii_case("i have met them at c"));
     }
 
     #[test]
@@ -141,15 +149,17 @@ mod tests {
         let min_length = pts.iter().map(|pt| pt.len()).min().unwrap();
         let ct = cts
             .iter()
-            .map(|ct| &ct[..min_length])
+            .map(|ct| &ct[0..min_length])
             .fold(Vec::new(), |mut accum, ct| {
                 accum.extend_from_slice(ct);
                 accum
             });
 
         let key_ = break_xor_with_key(&ct, min_length).unwrap();
+        let mut pt = cts[0][0..min_length].to_owned();
+        xor(&mut pt, &key_);
         assert_eq!(
-            String::from_utf8(xor(&cts[0][..min_length], &key_)).unwrap(),
+            String::from_utf8(pt).unwrap(),
             "I'm rated \"R\"...this is a warning, ya better void / P"
         );
     }

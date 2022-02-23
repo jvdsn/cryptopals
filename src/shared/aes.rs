@@ -56,8 +56,8 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8], ct: &mut [u8]) {
     while i < pt.len() {
         let pt_block = &pt[i..i + 16];
         let prev_ct_block = if i < 16 { iv } else { &ct[i - 16..i] };
-        let ct_block = xor(pt_block, prev_ct_block);
-        let mut ct_block = GenericArray::clone_from_slice(&ct_block);
+        let mut ct_block = GenericArray::clone_from_slice(pt_block);
+        xor(ct_block.as_mut_slice(), prev_ct_block);
         aes128.encrypt_block(&mut ct_block);
         ct[i..i + 16].copy_from_slice(ct_block.as_slice());
         i += 16;
@@ -75,9 +75,9 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8], pt: &mut [u8]) {
         let ct_block = &ct[i..i + 16];
         let mut pt_block = GenericArray::clone_from_slice(ct_block);
         aes128.decrypt_block(&mut pt_block);
-        let prev_ct_block = if i < 16 { iv } else { &ct[i - 16..i] };
-        let pt_block = xor(pt_block.as_slice(), prev_ct_block);
         pt[i..i + 16].copy_from_slice(pt_block.as_slice());
+        let prev_ct_block = if i < 16 { iv } else { &ct[i - 16..i] };
+        xor(&mut pt[i..i + 16], prev_ct_block);
         i += 16;
     }
 }

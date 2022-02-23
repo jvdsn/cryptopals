@@ -6,7 +6,7 @@ pub fn parse_key_value(input: &str) -> HashMap<String, String> {
         .split('&')
         .map(|s| {
             let index = s.chars().position(|c| c == '=').unwrap();
-            (s[..index].to_owned(), s[index + 1..].to_owned())
+            (s[0..index].to_owned(), s[index + 1..].to_owned())
         })
         .collect()
 }

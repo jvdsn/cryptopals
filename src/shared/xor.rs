@@ -7,22 +7,21 @@ const LETTER_FREQUENCIES: [f64; 26] = [
 ];
 const N: f64 = 182_303.0;
 
-#[must_use]
-pub fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
+pub fn xor(a: &mut [u8], b: &[u8]) {
     assert_eq!(a.len(), b.len());
-    a.iter().zip(b.iter()).map(|(x, y)| x ^ y).collect()
+    (0..a.len()).for_each(|i| a[i] ^= b[i]);
 }
 
-#[must_use]
-pub fn xor_with_key(bytes: &[u8], key: &[u8]) -> Vec<u8> {
-    (0..bytes.len())
-        .map(|i| bytes[i] ^ key[i % key.len()])
-        .collect()
+pub fn xor_with_key(bytes: &mut [u8], key: &[u8]) {
+    (0..bytes.len()).for_each(|i| bytes[i] ^= key[i % key.len()]);
 }
 
 #[must_use]
 pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
-    xor(a, b).iter().map(|x| x.count_ones()).fold(0, u32::add)
+    assert_eq!(a.len(), b.len());
+    (0..a.len())
+        .map(|i| (a[i] ^ b[i]).count_ones())
+        .fold(0, u32::add)
 }
 
 #[must_use]
@@ -51,7 +50,11 @@ pub fn score(pt: &[u8], floor: f64) -> Option<f64> {
 pub fn frequency_analysis(ct: &[u8]) -> Option<(f64, u8, Vec<u8>)> {
     let floor = (0.01 / N).log10();
     (0..=255)
-        .map(|key| (key, xor_with_key(ct, &[key])))
+        .map(|key| {
+            let mut pt = ct.to_owned();
+            xor_with_key(&mut pt, &[key]);
+            (key, pt)
+        })
         .filter_map(|(key, pt)| score(&pt, floor).map(|score| (score, key, pt)))
         .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
 }

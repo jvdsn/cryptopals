@@ -99,10 +99,10 @@ mod tests {
         loop {
             let padding_len = (block_size - 1) - (recovered.len() % block_size);
             let mut pt = Vec::with_capacity(padding_len + recovered.len() + 1 + padding_len);
-            (0..padding_len).for_each(|_| pt.push(0));
-            pt.extend(&recovered);
+            pt.extend_from_slice(&vec![0; padding_len]);
+            pt.extend_from_slice(&recovered);
             pt.push(0);
-            (0..padding_len).for_each(|_| pt.push(0));
+            pt.extend_from_slice(&vec![0; padding_len]);
             let byte_index = padding_len + recovered.len();
             let end1 = padding_len + recovered.len() + 1;
             let end2 = end1 + padding_len + recovered.len() + 1;
@@ -207,11 +207,11 @@ mod tests {
             let mut pt = Vec::with_capacity(
                 prefix_padding.len() + padding_len + recovered.len() + 1 + padding_len,
             );
-            pt.extend(&prefix_padding);
-            (0..padding_len).for_each(|_| pt.push(0));
-            pt.extend(&recovered);
+            pt.extend_from_slice(&prefix_padding);
+            pt.extend_from_slice(&vec![0; padding_len]);
+            pt.extend_from_slice(&recovered);
             pt.push(0);
-            (0..padding_len).for_each(|_| pt.push(0));
+            pt.extend_from_slice(&vec![0; padding_len]);
             let byte_index = prefix_padding.len() + padding_len + recovered.len();
             let end1 = block_size + padding_len + recovered.len() + 1;
             let end2 = end1 + padding_len + recovered.len() + 1;
@@ -273,13 +273,11 @@ mod tests {
             String::from_utf8_lossy(&pt).contains(";admin=true;")
         };
 
-        let ct1 = encrypt(b"?admin?true").unwrap();
+        let mut ct = encrypt(b"?admin?true").unwrap();
         let actual_pt = b"?admin?true;comm";
         let target_pt = b";admin=true;comm";
-        let mut ct2 = Vec::with_capacity(ct1.len());
-        ct2.extend_from_slice(&ct1[0..16]);
-        ct2.extend_from_slice(&xor(&ct1[16..32], &xor(actual_pt, target_pt)));
-        ct2.extend_from_slice(&ct1[32..96]);
-        assert!(decrypt(&ct2));
+        xor(&mut ct[16..16 + actual_pt.len()], actual_pt);
+        xor(&mut ct[16..16 + target_pt.len()], target_pt);
+        assert!(decrypt(&ct));
     }
 }

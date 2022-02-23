@@ -134,6 +134,5 @@ pub fn md4_mac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
     new_msg.extend_from_slice(key);
     new_msg.extend_from_slice(msg);
 
-    let mut md4 = MD4::default();
-    md4.hash(&new_msg, mac);
+    MD4::default().hash(&new_msg, mac);
 }

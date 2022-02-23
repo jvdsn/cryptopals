@@ -85,13 +85,15 @@ mod tests {
             pt
         };
 
-        let ct1 = encrypt(&vec![0; 48]);
+        let ct1 = encrypt(&[0; 48]);
         let mut ct2 = Vec::with_capacity(ct1.len());
         ct2.extend_from_slice(&ct1[0..16]);
         ct2.extend_from_slice(&[0; 16]);
         ct2.extend_from_slice(&ct1);
         let pt = decrypt(&ct2);
-        assert_eq!(xor(&pt[0..16], &pt[32..48]), key);
+        let mut recovered_key = pt[0..16].to_owned();
+        xor(&mut recovered_key, &pt[32..48]);
+        assert_eq!(recovered_key, key);
     }
 
     #[test]
