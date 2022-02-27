@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::dh::{derive_shared, generate_keypair, srp};
+    use crate::shared::sha256::SHA256;
     use num_bigint::BigUint;
     use num_traits::{One, Zero};
     use std::ops::Sub;
@@ -131,8 +132,10 @@ mod tests {
         fffffffffffff";
 
         let N = &BigUint::parse_bytes(N_hex, 16).unwrap();
-        let (CS, SS) = srp(N, false);
-        assert_eq!(CS, SS);
+        let mut CK = [0; 32];
+        let mut SK = [0; 32];
+        srp(N, false, &mut CK, &mut SK);
+        assert_eq!(CK, SK);
     }
 
     #[allow(non_snake_case)]
@@ -149,7 +152,10 @@ mod tests {
         fffffffffffff";
 
         let N = &BigUint::parse_bytes(N_hex, 16).unwrap();
-        let (_, SS) = srp(N, true);
-        assert!(SS.is_zero());
+        let mut SK = [0; 32];
+        srp(N, true, &mut [0; 32], &mut SK);
+        let mut zero_hash = [0; 32];
+        SHA256::default().hash(&BigUint::zero().to_bytes_be(), &mut zero_hash);
+        assert_eq!(SK, zero_hash);
     }
 }
