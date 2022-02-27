@@ -1,10 +1,12 @@
 [package]
 name = "cryptopals"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 
 [dependencies]
 aes = "0.8.1"
 num-bigint = { version = "0.4", features = ["rand"] }
+num-integer = "0.1.44"
 num-traits = "0.2.14"
 rand = "0.8.4"
+sha2 = "0.10.2"
