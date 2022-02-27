@@ -218,8 +218,8 @@ mod tests {
 
         let mut verify = |msg: &[u8], mac: &[u8; 20]| {
             let mut computed_mac = [0; 20];
-            hmac(&key, msg, &mut computed_mac, |key, mac| {
-                SHA1::default().hash(key, mac)
+            hmac(&key, msg, &mut computed_mac, |msg, hash| {
+                SHA1::default().hash(msg, hash);
             });
             insecure_compare(mac, &computed_mac)
         };
@@ -263,8 +263,8 @@ mod tests {
 
         let mut verify = |msg: &[u8], mac: &[u8; 20]| {
             let mut computed_mac = [0; 20];
-            hmac(&key, msg, &mut computed_mac, |key, mac| {
-                SHA1::default().hash(key, mac)
+            hmac(&key, msg, &mut computed_mac, |msg, hash| {
+                SHA1::default().hash(msg, hash);
             });
             insecure_compare(mac, &computed_mac)
         };
