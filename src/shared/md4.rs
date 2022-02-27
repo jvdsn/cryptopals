@@ -26,7 +26,7 @@ impl MD4 {
         Self { a, b, c, d }
     }
 
-    fn process(&mut self, x: [u32; 16]) {
+    fn process(&mut self, x: &[u32; 16]) {
         let mut a = self.a;
         let mut b = self.b;
         let mut c = self.c;
@@ -83,7 +83,7 @@ impl MD4 {
             .chunks_exact(4)
             .enumerate()
             .for_each(|(i, b)| m[i] = u32::from_le_bytes(b.try_into().unwrap()));
-        self.process(m);
+        self.process(&m);
     }
 
     fn process_last(&mut self, rem: &[u8], b: u64) {
@@ -99,9 +99,7 @@ impl MD4 {
         self.process_block(&block);
     }
 
-    pub fn hash_with_b(&mut self, msg: &[u8], b: u64, hash: &mut [u8]) {
-        assert_eq!(hash.len(), 16);
-
+    pub fn hash_with_b(&mut self, msg: &[u8], b: u64, hash: &mut [u8; 16]) {
         // Processing X(i)
         let iter = msg.chunks_exact(64);
         let rem = iter.remainder();
@@ -117,7 +115,7 @@ impl MD4 {
         hash[12..16].copy_from_slice(&self.d.to_le_bytes());
     }
 
-    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8]) {
+    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8; 16]) {
         let b = 8 * u64::try_from(msg.len()).unwrap();
         self.hash_with_b(msg, b, hash);
     }
@@ -129,10 +127,6 @@ impl Default for MD4 {
     }
 }
 
-pub fn md4_mac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
-    let mut new_msg = Vec::with_capacity(key.len() + msg.len());
-    new_msg.extend_from_slice(key);
-    new_msg.extend_from_slice(msg);
-
-    MD4::default().hash(&new_msg, mac);
+pub fn md4_mac(key: &[u8], msg: &[u8], mac: &mut [u8; 16]) {
+    MD4::default().hash(&[key, msg].concat(), mac);
 }

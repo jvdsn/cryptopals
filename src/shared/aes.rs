@@ -1,17 +1,10 @@
-use crate::shared::random_bytes;
 use crate::shared::xor::xor;
 use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 use std::collections::HashSet;
 
-#[must_use]
-pub fn random_key() -> Vec<u8> {
-    random_bytes(16)
-}
-
-pub fn ecb_encrypt(key: &[u8], pt: &[u8], ct: &mut [u8]) {
-    assert_eq!(key.len(), 16);
+pub fn ecb_encrypt(key: &[u8; 16], pt: &[u8], ct: &mut [u8]) {
     assert_eq!(pt.len() % 16, 0);
     assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
@@ -25,8 +18,7 @@ pub fn ecb_encrypt(key: &[u8], pt: &[u8], ct: &mut [u8]) {
     }
 }
 
-pub fn ecb_decrypt(key: &[u8], ct: &[u8], pt: &mut [u8]) {
-    assert_eq!(key.len(), 16);
+pub fn ecb_decrypt(key: &[u8; 16], ct: &[u8], pt: &mut [u8]) {
     assert_eq!(ct.len() % 16, 0);
     assert_eq!(pt.len(), ct.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
@@ -46,9 +38,7 @@ pub fn is_ecb(ct: &[u8]) -> bool {
     blocks_set.len() < ct.len() / 16
 }
 
-pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8], ct: &mut [u8]) {
-    assert_eq!(key.len(), 16);
-    assert_eq!(iv.len(), 16);
+pub fn cbc_encrypt(key: &[u8; 16], iv: &[u8; 16], pt: &[u8], ct: &mut [u8]) {
     assert_eq!(pt.len() % 16, 0);
     assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
@@ -64,9 +54,7 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], pt: &[u8], ct: &mut [u8]) {
     }
 }
 
-pub fn cbc_decrypt(key: &[u8], iv: &[u8], ct: &[u8], pt: &mut [u8]) {
-    assert_eq!(key.len(), 16);
-    assert_eq!(iv.len(), 16);
+pub fn cbc_decrypt(key: &[u8; 16], iv: &[u8; 16], ct: &[u8], pt: &mut [u8]) {
     assert_eq!(ct.len() % 16, 0);
     assert_eq!(pt.len(), ct.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
@@ -93,8 +81,7 @@ fn ctr_keystream(aes128: Aes128, nonce: u64) -> impl Iterator<Item = u8> {
     })
 }
 
-pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8], ct: &mut [u8]) {
-    assert_eq!(key.len(), 16);
+pub fn ctr_encrypt(key: &[u8; 16], nonce: u64, pt: &[u8], ct: &mut [u8]) {
     assert_eq!(ct.len(), pt.len());
     let aes128 = Aes128::new(GenericArray::from_slice(key));
     ctr_keystream(aes128, nonce)
@@ -103,12 +90,11 @@ pub fn ctr_encrypt(key: &[u8], nonce: u64, pt: &[u8], ct: &mut [u8]) {
         .for_each(|(i, k)| ct[i] = pt[i] ^ k);
 }
 
-pub fn ctr_decrypt(key: &[u8], nonce: u64, ct: &[u8], pt: &mut [u8]) {
+pub fn ctr_decrypt(key: &[u8; 16], nonce: u64, ct: &[u8], pt: &mut [u8]) {
     ctr_encrypt(key, nonce, ct, pt);
 }
 
-pub fn ctr_edit(key: &[u8], nonce: u64, ct: &mut [u8], offset: usize, pt: &[u8]) {
-    assert_eq!(key.len(), 16);
+pub fn ctr_edit(key: &[u8; 16], nonce: u64, ct: &mut [u8], offset: usize, pt: &[u8]) {
     assert_eq!(pt.len(), ct.len() - offset);
     let aes128 = Aes128::new(GenericArray::from_slice(key));
     ctr_keystream(aes128, nonce)

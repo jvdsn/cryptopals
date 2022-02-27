@@ -25,10 +25,10 @@ impl SHA1 {
         Self { k, h }
     }
 
-    fn process(&mut self, m: [u32; 16]) {
+    fn process(&mut self, m: &[u32; 16]) {
         let mut w = [0; 80];
         // Step a
-        w[0..16].copy_from_slice(&m);
+        w[0..16].copy_from_slice(m);
 
         // Step b
         (16..80).for_each(|t| w[t] = (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]).rotate_left(1));
@@ -69,7 +69,7 @@ impl SHA1 {
             .chunks_exact(4)
             .enumerate()
             .for_each(|(i, b)| m[i] = u32::from_be_bytes(b.try_into().unwrap()));
-        self.process(m);
+        self.process(&m);
     }
 
     fn process_last(&mut self, rem: &[u8], l: u64) {
@@ -85,9 +85,7 @@ impl SHA1 {
         self.process_block(&block);
     }
 
-    pub fn hash_with_l(&mut self, msg: &[u8], l: u64, hash: &mut [u8]) {
-        assert_eq!(hash.len(), 20);
-
+    pub fn hash_with_l(&mut self, msg: &[u8], l: u64, hash: &mut [u8; 20]) {
         // Processing M(i)
         let iter = msg.chunks_exact(64);
         let rem = iter.remainder();
@@ -103,7 +101,7 @@ impl SHA1 {
             .for_each(|(i, hi)| hash[4 * i..4 * i + 4].copy_from_slice(&hi.to_be_bytes()));
     }
 
-    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8]) {
+    pub fn hash(&mut self, msg: &[u8], hash: &mut [u8; 20]) {
         let l = 8 * u64::try_from(msg.len()).unwrap();
         self.hash_with_l(msg, l, hash);
     }
@@ -115,6 +113,6 @@ impl Default for SHA1 {
     }
 }
 
-pub fn sha1_mac(key: &[u8], msg: &[u8], mac: &mut [u8]) {
+pub fn sha1_mac(key: &[u8], msg: &[u8], mac: &mut [u8; 20]) {
     SHA1::default().hash(&[key, msg].concat(), mac);
 }

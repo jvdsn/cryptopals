@@ -1,16 +1,15 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::aes::{
-        cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_edit, ctr_encrypt, ecb_decrypt, random_key,
+        cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_edit, ctr_encrypt, ecb_decrypt,
     };
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::hmac::hmac;
     use crate::shared::md4::{md4_mac, MD4};
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
-    use crate::shared::random_bytes;
     use crate::shared::sha1::{sha1_mac, SHA1};
     use crate::shared::xor::xor;
-    use rand::Rng;
+    use rand::{Rng, RngCore};
     use std::fs::read_to_string;
 
     #[test]
@@ -25,7 +24,9 @@ mod tests {
         let mut pt = vec![0; ct.len()];
         ecb_decrypt(key, &ct, &mut pt);
 
-        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
         let nonce = 0;
         let mut ct = vec![0; pt.len()];
         ctr_encrypt(&key, nonce, &pt, &mut ct);
@@ -40,19 +41,18 @@ mod tests {
     fn test_challenge_26() {
         let prefix = b"comment1=cooking%20MCs;userdata=";
         let suffix = b";comment2=%20like%20a%20pound%20of%20bacon";
-        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
         let nonce = 0;
         let encrypt = |pt: &[u8]| {
             if pt.contains(&b';') || pt.contains(&b'=') {
                 return None;
             }
 
-            let mut unpadded = Vec::with_capacity(prefix.len() + pt.len() + suffix.len());
-            unpadded.extend_from_slice(prefix);
-            unpadded.extend_from_slice(pt);
-            unpadded.extend_from_slice(suffix);
-            let mut ct = vec![0; unpadded.len()];
-            ctr_encrypt(&key, nonce, &unpadded, &mut ct);
+            let pt = [prefix, pt, suffix].concat();
+            let mut ct = vec![0; pt.len()];
+            ctr_encrypt(&key, nonce, &pt, &mut ct);
             Some(ct)
         };
         let decrypt = |ct: &[u8]| {
@@ -71,7 +71,9 @@ mod tests {
 
     #[test]
     fn test_challenge_27() {
-        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
         let iv = key.clone();
         let encrypt = |pt: &[u8]| {
             let pt = pad_pkcs7(&pt, 16);
@@ -87,10 +89,7 @@ mod tests {
         };
 
         let ct1 = encrypt(&[0; 48]);
-        let mut ct2 = Vec::with_capacity(ct1.len());
-        ct2.extend_from_slice(&ct1[0..16]);
-        ct2.extend_from_slice(&[0; 16]);
-        ct2.extend_from_slice(&ct1);
+        let ct2 = [&ct1[0..16], &[0; 16], &ct1].concat();
         let pt = decrypt(&ct2);
         let mut recovered_key = pt[0..16].to_owned();
         xor(&mut recovered_key, &pt[32..48]);
@@ -99,7 +98,9 @@ mod tests {
 
     #[test]
     fn test_challenge_28() {
-        let key = random_bytes(rand::thread_rng().gen_range(0..16));
+        let mut rng = rand::thread_rng();
+        let mut key = vec![0; rng.gen_range(0..16)];
+        rng.fill_bytes(&mut key);
         let msg1 = b"Lorem ipsum";
         let msg2 = b"Lorem_ipsum";
         let mut mac1 = [0; 20];
@@ -113,8 +114,11 @@ mod tests {
 
     #[test]
     fn test_challenge_29() {
-        let key = random_bytes(rand::thread_rng().gen_range(0..16));
-        let msg1 = b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
+        let mut rng = rand::thread_rng();
+        let mut key = vec![0; rng.gen_range(0..16)];
+        rng.fill_bytes(&mut key);
+        let msg1: &[u8] =
+            b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
         let mut mac1 = [0; 20];
         sha1_mac(&key, msg1, &mut mac1);
 
@@ -141,10 +145,7 @@ mod tests {
             let mut sha1 = SHA1::with(h);
             sha1.hash_with_l(msg2, l, &mut mac2);
 
-            let mut msg = Vec::with_capacity(msg1.len() + padding.len() + msg2.len());
-            msg.extend_from_slice(msg1);
-            msg.extend_from_slice(&padding);
-            msg.extend_from_slice(msg2);
+            let msg = [msg1, &padding, msg2].concat();
             let mut mac = [0; 20];
             sha1_mac(&key, &msg, &mut mac);
 
@@ -154,8 +155,11 @@ mod tests {
 
     #[test]
     fn test_challenge_30() {
-        let key = random_bytes(rand::thread_rng().gen_range(0..16));
-        let msg1 = b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
+        let mut rng = rand::thread_rng();
+        let mut key = vec![0; rng.gen_range(0..16)];
+        rng.fill_bytes(&mut key);
+        let msg1: &[u8] =
+            b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
         let mut mac1 = [0; 16];
         md4_mac(&key, msg1, &mut mac1);
 
@@ -183,10 +187,7 @@ mod tests {
             );
             md4.hash_with_b(msg2, b, &mut mac2);
 
-            let mut msg = Vec::with_capacity(msg1.len() + padding.len() + msg2.len());
-            msg.extend_from_slice(msg1);
-            msg.extend_from_slice(&padding);
-            msg.extend_from_slice(msg2);
+            let msg = [msg1, &padding, msg2].concat();
             let mut mac = [0; 16];
             md4_mac(&key, &msg, &mut mac);
 
@@ -196,10 +197,12 @@ mod tests {
 
     #[test]
     fn test_challenge_31() {
-        let key = random_key();
-        let insecure_compare = |a: &[u8], b: &[u8]| {
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
+        let mut insecure_compare = |a: &[u8], b: &[u8]| {
             // HTTP overhead: 40-60 ms
-            let mut time = rand::thread_rng().gen_range(40..60);
+            let mut time = rng.gen_range(40..60);
             if a.len() != b.len() {
                 return (false, time);
             }
@@ -213,7 +216,7 @@ mod tests {
             (true, time)
         };
 
-        let verify = |msg: &[u8], mac: &[u8]| {
+        let mut verify = |msg: &[u8], mac: &[u8; 20]| {
             let mut computed_mac = [0; 20];
             hmac(&key, msg, &mut computed_mac, |key, mac| {
                 SHA1::default().hash(key, mac)
@@ -239,10 +242,12 @@ mod tests {
 
     #[test]
     fn test_challenge_32() {
-        let key = random_key();
-        let insecure_compare = |a: &[u8], b: &[u8]| {
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
+        let mut insecure_compare = |a: &[u8], b: &[u8]| {
             // HTTP overhead: 40-60 ms
-            let mut time = rand::thread_rng().gen_range(40..60);
+            let mut time = rng.gen_range(40..60);
             if a.len() != b.len() {
                 return (false, time);
             }
@@ -256,7 +261,7 @@ mod tests {
             (true, time)
         };
 
-        let verify = |msg: &[u8], mac: &[u8]| {
+        let mut verify = |msg: &[u8], mac: &[u8; 20]| {
             let mut computed_mac = [0; 20];
             hmac(&key, msg, &mut computed_mac, |key, mac| {
                 SHA1::default().hash(key, mac)

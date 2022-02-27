@@ -1,29 +1,28 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_encrypt, random_key};
+    use crate::shared::aes::{cbc_decrypt, cbc_encrypt, ctr_decrypt, ctr_encrypt};
     use crate::shared::conversion::base64_to_bytes;
     use crate::shared::mersenne_twister::{clone_mt19937, encrypt, MersenneTwister};
     use crate::shared::padding::{pad_pkcs7, unpad_pkcs7};
-    use crate::shared::random_bytes;
     use crate::shared::xor::{break_xor_with_key, xor};
-    use rand::Rng;
+    use rand::{Rng, RngCore};
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
     #[test]
     fn test_challenge_17() {
-        fn attack_block<F>(padding_oracle: F, iv: &[u8], ct: &[u8], pt: &mut [u8])
+        fn attack_block<F>(padding_oracle: F, iv: &[u8; 16], ct: &[u8], pt: &mut [u8])
         where
-            F: Fn(&[u8], &[u8]) -> bool,
+            F: Fn(&[u8; 16], &[u8]) -> bool,
         {
             (0..16).rev().for_each(|i| {
                 let mut s = vec![u8::try_from(16 - i).unwrap(); 16 - i];
                 xor(&mut s[1..], &pt[i + 1..]);
                 let b = (0..=255)
                     .find(|&b| {
-                        let mut iv_ = vec![0; i];
-                        iv_.push(s[0] ^ b);
-                        iv_.extend_from_slice(&s[1..]);
+                        let mut iv_ = [0; 16];
+                        iv_[i] = s[0] ^ b;
+                        iv_[i + 1..].copy_from_slice(&s[1..]);
                         padding_oracle(&iv_, ct)
                     })
                     .expect(&format!(
@@ -47,15 +46,17 @@ mod tests {
             "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93",
         ];
 
+        let mut rng = rand::thread_rng();
         pts.iter().for_each(|pt| {
-            let pt = base64_to_bytes(pt).unwrap();
-            let padded = pad_pkcs7(&pt, 16);
-            let key = random_key();
-            let iv = random_bytes(16);
-            let mut ct = vec![0; padded.len()];
-            cbc_encrypt(&key, &iv, &padded, &mut ct);
+            let pt = pad_pkcs7(&base64_to_bytes(pt).unwrap(), 16);
+            let mut key = [0; 16];
+            rng.fill_bytes(&mut key);
+            let mut iv = [0; 16];
+            rng.fill_bytes(&mut iv);
+            let mut ct = vec![0; pt.len()];
+            cbc_encrypt(&key, &iv, &pt, &mut ct);
 
-            let padding_oracle = |iv: &[u8], ct: &[u8]| {
+            let padding_oracle = |iv: &[u8; 16], ct: &[u8]| {
                 let mut pt = vec![0; ct.len()];
                 cbc_decrypt(&key, iv, ct, &mut pt);
                 unpad_pkcs7(&pt, 16).is_some()
@@ -63,16 +64,13 @@ mod tests {
 
             let mut pt_ = vec![0; ct.len()];
             attack_block(padding_oracle, &iv, &ct[0..16], &mut pt_[0..16]);
+            let mut iv_ = [0; 16];
             (16..ct.len()).step_by(16).for_each(|i| {
-                attack_block(
-                    padding_oracle,
-                    &ct[i - 16..i],
-                    &ct[i..i + 16],
-                    &mut pt_[i..i + 16],
-                )
+                iv_.copy_from_slice(&ct[i - 16..i]);
+                attack_block(padding_oracle, &iv_, &ct[i..i + 16], &mut pt_[i..i + 16])
             });
 
-            assert_eq!(pt_, padded);
+            assert_eq!(pt_, pt);
         });
     }
 
@@ -94,7 +92,9 @@ mod tests {
 
     #[test]
     fn test_challenge_19() {
-        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
         let nonce = 0;
         let pts: Vec<Vec<u8>> = BufReader::new(File::open("src/set3/challenge19.txt").unwrap())
             .lines()
@@ -130,7 +130,9 @@ mod tests {
 
     #[test]
     fn test_challenge_20() {
-        let key = random_key();
+        let mut rng = rand::thread_rng();
+        let mut key = [0; 16];
+        rng.fill_bytes(&mut key);
         let nonce = 0;
         let pts: Vec<Vec<u8>> = BufReader::new(File::open("src/set3/challenge20.txt").unwrap())
             .lines()
@@ -214,21 +216,19 @@ mod tests {
         // Make the key quite small so this test passes faster.
         let key = 1234;
         let mut rng = rand::thread_rng();
-        let pad_len = rng.gen_range(0..16);
-        let mut pt = Vec::with_capacity(pad_len + 14);
-        pt.extend_from_slice(&random_bytes(pad_len));
+        let mut pt = vec![0; rng.gen_range(0..16)];
+        rng.fill_bytes(&mut pt);
         pt.extend_from_slice(b"AAAAAAAAAAAAAA");
         let mut ct = vec![0; pt.len()];
         encrypt(key, &pt, &mut ct);
 
-        let pad_len = ct.len() - 14;
-        let mut pt = Vec::with_capacity(ct.len());
-        pt.extend_from_slice(&random_bytes(pad_len));
+        let prefix_len = ct.len() - 14;
+        let mut pt = vec![0; prefix_len];
         pt.extend_from_slice(b"AAAAAAAAAAAAAA");
         let mut ct_ = vec![0; pt.len()];
         assert!((0..=65535).any(|k| {
             encrypt(k, &pt, &mut ct_);
-            ct_[pad_len..] == ct[pad_len..]
+            ct_[prefix_len..] == ct[prefix_len..]
         }));
     }
 }

@@ -18,6 +18,7 @@ pub struct MersenneTwister {
 
 impl MersenneTwister {
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         n: usize,
         m: usize,
@@ -79,6 +80,7 @@ impl MersenneTwister {
         });
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<u32> {
         if self.index >= self.n {
             if self.index > self.n {
