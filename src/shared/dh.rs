@@ -1,6 +1,7 @@
 use crate::shared::random_bytes;
 use num_bigint::{BigUint, RandBigInt, ToBigInt};
 use num_integer::Integer;
+use num_traits::Zero;
 use sha2::digest::Digest;
 use sha2::Sha256;
 
@@ -16,7 +17,7 @@ pub fn derive_shared(p: &BigUint, our_private: &BigUint, peer_public: &BigUint) 
 }
 
 #[allow(non_snake_case)]
-pub fn srp(N: &BigUint) -> (BigUint, BigUint) {
+pub fn srp(N: &BigUint, send_A_0: bool) -> (BigUint, BigUint) {
     let g_hex = b"2";
     let k_hex = b"2";
     let P = b"password";
@@ -24,7 +25,11 @@ pub fn srp(N: &BigUint) -> (BigUint, BigUint) {
     let CN = N;
     let Cg = &BigUint::parse_bytes(g_hex, 16).unwrap();
     let Ck = &BigUint::parse_bytes(k_hex, 16).unwrap();
-    let (ref Ca, ref CA) = generate_keypair(N, Cg);
+    let (ref Ca, mut CA) = generate_keypair(N, Cg);
+    if send_A_0 {
+        CA.set_zero();
+    }
+    let CA = &CA;
 
     let SN = N;
     let Sg = &BigUint::parse_bytes(g_hex, 16).unwrap();
