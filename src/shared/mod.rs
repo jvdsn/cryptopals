@@ -3,6 +3,7 @@ use rand::RngCore;
 pub mod aes;
 pub mod conversion;
 pub mod dh;
+pub mod hmac;
 pub mod key_value;
 pub mod md4;
 pub mod mersenne_twister;

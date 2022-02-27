@@ -6,8 +6,7 @@ use sha2::digest::Digest;
 use sha2::Sha256;
 
 pub fn generate_keypair(p: &BigUint, g: &BigUint) -> (BigUint, BigUint) {
-    let mut rng = rand::thread_rng();
-    let private = rng.gen_biguint_below(p);
+    let private = rand::thread_rng().gen_biguint_below(p);
     let public = g.modpow(&private, p);
     (private, public)
 }
