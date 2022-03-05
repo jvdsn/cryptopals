@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::dh::{derive_shared, generate_keypair, simplified_srp, srp};
+    use crate::shared::dh;
+    use crate::shared::dh::{simplified_srp, srp};
     use crate::shared::hmac::hmac;
+    use crate::shared::rsa;
     use crate::shared::sha256::SHA256;
     use num_bigint::BigUint;
     use num_traits::{One, Zero};
@@ -23,10 +25,10 @@ mod tests {
         let p = &BigUint::parse_bytes(p_hex, 16).unwrap();
         let g = &BigUint::parse_bytes(g_hex, 16).unwrap();
 
-        let (ref a, ref A) = generate_keypair(p, g);
-        let (ref b, ref B) = generate_keypair(p, g);
-        let s1 = derive_shared(p, a, B);
-        let s2 = derive_shared(p, b, A);
+        let (ref a, ref A) = dh::generate_keypair(p, g);
+        let (ref b, ref B) = dh::generate_keypair(p, g);
+        let s1 = dh::derive_shared(p, a, B);
+        let s2 = dh::derive_shared(p, b, A);
         assert_eq!(s1, s2);
     }
 
@@ -47,7 +49,7 @@ mod tests {
         // Initialization
         let Ap = &BigUint::parse_bytes(p_hex, 16).unwrap();
         let Ag = &BigUint::parse_bytes(g_hex, 16).unwrap();
-        let (ref Aa, ref AA) = generate_keypair(Ap, Ag);
+        let (ref Aa, ref AA) = dh::generate_keypair(Ap, Ag);
 
         // A->M
         let Mp = Ap;
@@ -58,7 +60,7 @@ mod tests {
         let Bp = Mp;
         let Bg = Mg;
         let BA = Mp;
-        let (ref Bb, ref BB) = generate_keypair(&Bp, &Bg);
+        let (ref Bb, ref BB) = dh::generate_keypair(&Bp, &Bg);
 
         // B->M
         let _MB = BB;
@@ -66,8 +68,8 @@ mod tests {
         // M->A
         let AB = Mp;
 
-        let As = derive_shared(Ap, Aa, AB);
-        let Bs = derive_shared(Bp, Bb, BA);
+        let As = dh::derive_shared(Ap, Aa, AB);
+        let Bs = dh::derive_shared(Bp, Bb, BA);
         assert!(As.is_zero());
         assert!(Bs.is_zero());
     }
@@ -99,15 +101,15 @@ mod tests {
             let Bg = g;
 
             // A -> B
-            let (ref Aa, ref AA) = generate_keypair(Ap, Ag);
+            let (ref Aa, ref AA) = dh::generate_keypair(Ap, Ag);
             let BA = AA;
 
             // B -> A
-            let (ref Bb, ref BB) = generate_keypair(Bp, Bg);
+            let (ref Bb, ref BB) = dh::generate_keypair(Bp, Bg);
             let AB = BB;
 
-            let As = derive_shared(Ap, Aa, AB);
-            let Bs = derive_shared(Bp, Bb, BA);
+            let As = dh::derive_shared(Ap, Aa, AB);
+            let Bs = dh::derive_shared(Bp, Bb, BA);
             (As, Bs)
         };
 
@@ -229,5 +231,15 @@ mod tests {
 
             Smac == Cmac
         }));
+    }
+
+    #[test]
+    fn test_challenge_39() {
+        let message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
+        let (public_key, private_key) = rsa::generate_keypair(1024);
+        let m = BigUint::from_bytes_be(message.as_bytes());
+        let c = rsa::encrypt(&m, &public_key);
+        let m = rsa::decrypt(&c, &private_key);
+        assert_eq!(String::from_utf8(m.to_bytes_be()).unwrap(), message);
     }
 }
