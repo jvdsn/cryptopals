@@ -1,13 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use crate::shared::dh;
     use crate::shared::dh::{simplified_srp, srp};
     use crate::shared::hmac::hmac;
     use crate::shared::rsa;
     use crate::shared::sha256::SHA256;
-    use num_bigint::BigUint;
+    use crate::shared::{dh, mod_inv};
+    use num_bigint::{BigUint, ToBigInt};
+    use num_integer::Integer;
     use num_traits::{One, Zero};
     use std::ops::Sub;
+    use std::str::FromStr;
 
     #[allow(non_snake_case)]
     #[test]
@@ -236,10 +238,46 @@ mod tests {
     #[test]
     fn test_challenge_39() {
         let message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
-        let (public_key, private_key) = rsa::generate_keypair(1024);
         let m = BigUint::from_bytes_be(message.as_bytes());
+        // Apparently there's no real pure Rust libraries to generate random primes??...
+        let p = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
+        let q = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
+        let (public_key, private_key) = rsa::generate_keypair(p, q);
         let c = rsa::encrypt(&m, &public_key);
         let m = rsa::decrypt(&c, &private_key);
+        assert_eq!(String::from_utf8(m.to_bytes_be()).unwrap(), message);
+    }
+
+    #[test]
+    fn test_challenge_40() {
+        let message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
+        let m = BigUint::from_bytes_be(message.as_bytes());
+        // Apparently there's no real pure Rust libraries to generate random primes??...
+        let p0 = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
+        let q0 = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
+        let p1 = &BigUint::from_str("11274983038895115121293116870192254883468059626563068837945742093801526722162538837580229240054792262576510430845352465935843147772922402832853959860669771").unwrap();
+        let q1 = &BigUint::from_str("7262594005020769019931822832663446500662485538381898929588200396322418810779276174809382812951073349907424874728035382013137196078489330189449393145355503").unwrap();
+        let p2 = &BigUint::from_str("12913543998799265969823239687498071641165862012531925177661036260568473452380829657935448074759790583333391776955901364246374511636780811502839627485014289").unwrap();
+        let q2 = &BigUint::from_str("9545889585983283723785056542372918092517768841049236382780906557531644288178748339341312152025004910555059160421572735766889349024115657853149560419070863").unwrap();
+        let (public_key0, _) = rsa::generate_keypair(p0, q0);
+        let (public_key1, _) = rsa::generate_keypair(p1, q1);
+        let (public_key2, _) = rsa::generate_keypair(p2, q2);
+        let c0 = rsa::encrypt(&m, &public_key0);
+        let c1 = rsa::encrypt(&m, &public_key1);
+        let c2 = rsa::encrypt(&m, &public_key2);
+        let (n0, _) = public_key0;
+        let (n1, _) = public_key1;
+        let (n2, _) = public_key2;
+        let n012 = &n0 * &n1 * &n2;
+        let ms0 = &n1 * &n2;
+        let ms1 = &n0 * &n2;
+        let ms2 = &n0 * &n1;
+        let result = ((&c0 * &ms0 * mod_inv(&ms0.to_bigint().unwrap(), &n0).unwrap())
+            .mod_floor(&n012)
+            + (&c1 * &ms1 * mod_inv(&ms1.to_bigint().unwrap(), &n1).unwrap()).mod_floor(&n012)
+            + (&c2 * &ms2 * mod_inv(&ms2.to_bigint().unwrap(), &n2).unwrap()).mod_floor(&n012))
+        .mod_floor(&n012);
+        let m = result.nth_root(3);
         assert_eq!(String::from_utf8(m.to_bytes_be()).unwrap(), message);
     }
 }
