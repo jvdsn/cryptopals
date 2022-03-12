@@ -237,21 +237,21 @@ mod tests {
 
     #[test]
     fn test_challenge_39() {
-        let message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
-        let m = BigUint::from_bytes_be(message.as_bytes());
+        let message = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit";
+        let m = BigUint::from_bytes_be(message);
         // Apparently there's no real pure Rust libraries to generate random primes??...
         let p = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
         let q = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
         let (public_key, private_key) = rsa::generate_keypair(p, q);
         let c = rsa::encrypt(&m, &public_key);
         let m = rsa::decrypt(&c, &private_key);
-        assert_eq!(String::from_utf8(m.to_bytes_be()).unwrap(), message);
+        assert_eq!(m.to_bytes_be(), message);
     }
 
     #[test]
     fn test_challenge_40() {
-        let message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
-        let m = BigUint::from_bytes_be(message.as_bytes());
+        let message = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit";
+        let m = BigUint::from_bytes_be(message);
         // Apparently there's no real pure Rust libraries to generate random primes??...
         let p0 = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
         let q0 = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
@@ -278,6 +278,6 @@ mod tests {
             + (&c2 * &ms2 * mod_inv(&ms2.to_bigint().unwrap(), &n2).unwrap()).mod_floor(&n012))
         .mod_floor(&n012);
         let m = result.nth_root(3);
-        assert_eq!(String::from_utf8(m.to_bytes_be()).unwrap(), message);
+        assert_eq!(m.to_bytes_be(), message);
     }
 }
