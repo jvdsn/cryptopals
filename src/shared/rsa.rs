@@ -16,18 +16,18 @@ pub fn generate_keypair(p: &BigUint, q: &BigUint) -> ((BigUint, BigUint), (BigUi
 }
 
 #[must_use]
-pub fn encrypt(m: &BigUint, public_key: &(BigUint, BigUint)) -> BigUint {
+pub fn encrypt(public_key: &(BigUint, BigUint), m: &BigUint) -> BigUint {
     let (n, e) = public_key;
     m.modpow(e, n)
 }
 
 #[must_use]
-pub fn decrypt(c: &BigUint, private_key: &(BigUint, BigUint)) -> BigUint {
+pub fn decrypt(private_key: &(BigUint, BigUint), c: &BigUint) -> BigUint {
     let (n, d) = private_key;
     c.modpow(d, n)
 }
 
-pub fn sign(msg: &[u8], sig: &mut [u8], private_key: &(BigUint, BigUint)) {
+pub fn sign(private_key: &(BigUint, BigUint), msg: &[u8], sig: &mut [u8]) {
     let (n, d) = private_key;
     let k = usize::try_from((n.bits() + 7) / 8).unwrap();
     assert_eq!(sig.len(), k);
@@ -43,7 +43,7 @@ pub fn sign(msg: &[u8], sig: &mut [u8], private_key: &(BigUint, BigUint)) {
 }
 
 #[must_use]
-pub fn verify(msg: &[u8], sig: &[u8], public_key: &(BigUint, BigUint)) -> bool {
+pub fn verify(public_key: &(BigUint, BigUint), msg: &[u8], sig: &[u8]) -> bool {
     let (n, e) = public_key;
     let k = usize::try_from((n.bits() + 7) / 8).unwrap();
 

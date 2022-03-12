@@ -243,8 +243,8 @@ mod tests {
         let p = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
         let q = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
         let (public_key, private_key) = rsa::generate_keypair(p, q);
-        let c = rsa::encrypt(&m, &public_key);
-        let m = rsa::decrypt(&c, &private_key);
+        let c = rsa::encrypt(&public_key, &m);
+        let m = rsa::decrypt(&private_key, &c);
         assert_eq!(m.to_bytes_be(), message);
     }
 
@@ -262,9 +262,9 @@ mod tests {
         let (public_key0, _) = rsa::generate_keypair(p0, q0);
         let (public_key1, _) = rsa::generate_keypair(p1, q1);
         let (public_key2, _) = rsa::generate_keypair(p2, q2);
-        let c0 = rsa::encrypt(&m, &public_key0);
-        let c1 = rsa::encrypt(&m, &public_key1);
-        let c2 = rsa::encrypt(&m, &public_key2);
+        let c0 = rsa::encrypt(&public_key0, &m);
+        let c1 = rsa::encrypt(&public_key1, &m);
+        let c2 = rsa::encrypt(&public_key2, &m);
         let (n0, _) = public_key0;
         let (n1, _) = public_key1;
         let (n2, _) = public_key2;
