@@ -1,7 +1,7 @@
 use crate::shared::hmac::hmac;
+use crate::shared::mod_sub;
 use crate::shared::sha256::SHA256;
-use num_bigint::{BigUint, RandBigInt, ToBigInt};
-use num_integer::Integer;
+use num_bigint::{BigUint, RandBigInt};
 use num_traits::Zero;
 use rand::RngCore;
 
@@ -71,11 +71,7 @@ pub fn srp(
     let mut hash = [0; 32];
     SHA256::default().hash(&[Csalt, P].concat(), &mut hash);
     let Cx = &BigUint::from_bytes_be(&hash);
-    let CS = (CB.to_bigint().unwrap() - (Ck * Cg.modpow(Cx, CN)).to_bigint().unwrap())
-        .mod_floor(&CN.to_bigint().unwrap())
-        .to_biguint()
-        .unwrap()
-        .modpow(&(Ca + Cu * Cx), CN);
+    let CS = mod_sub(CB, &(Ck * Cg.modpow(Cx, CN)), CN).modpow(&(Ca + Cu * Cx), CN);
     SHA256::default().hash(&CS.to_bytes_be(), CK);
 
     let SS = (SA * Sv.modpow(Su, SN)).modpow(Sb, SN);

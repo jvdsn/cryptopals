@@ -1,7 +1,7 @@
 use crate::shared::mod_inv;
 use crate::shared::padding::{pad_pkcs1_5, unpad_pkcs1_5};
 use crate::shared::sha1::SHA1;
-use num_bigint::{BigUint, ToBigInt};
+use num_bigint::BigUint;
 use std::ops::Sub;
 
 pub const SHA1_ASN1_ID: &[u8; 15] = b"\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14";
@@ -11,7 +11,7 @@ pub fn generate_keypair(p: &BigUint, q: &BigUint) -> ((BigUint, BigUint), (BigUi
     let n = p * q;
     let phi = p.sub(1u8) * q.sub(1u8);
     let e = BigUint::from(3u8);
-    let d = mod_inv(&e.to_bigint().unwrap(), &phi).unwrap();
+    let d = mod_inv(&e, &phi).unwrap();
     ((n.clone(), e), (n, d))
 }
 

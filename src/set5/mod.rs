@@ -5,7 +5,7 @@ mod tests {
     use crate::shared::rsa;
     use crate::shared::sha256::SHA256;
     use crate::shared::{dh, mod_inv};
-    use num_bigint::{BigUint, ToBigInt};
+    use num_bigint::BigUint;
     use num_integer::Integer;
     use num_traits::{One, Zero};
     use std::ops::Sub;
@@ -272,10 +272,9 @@ mod tests {
         let ms0 = &n1 * &n2;
         let ms1 = &n0 * &n2;
         let ms2 = &n0 * &n1;
-        let result = ((&c0 * &ms0 * mod_inv(&ms0.to_bigint().unwrap(), &n0).unwrap())
-            .mod_floor(&n012)
-            + (&c1 * &ms1 * mod_inv(&ms1.to_bigint().unwrap(), &n1).unwrap()).mod_floor(&n012)
-            + (&c2 * &ms2 * mod_inv(&ms2.to_bigint().unwrap(), &n2).unwrap()).mod_floor(&n012))
+        let result = ((&c0 * &ms0 * mod_inv(&ms0, &n0).unwrap()).mod_floor(&n012)
+            + (&c1 * &ms1 * mod_inv(&ms1, &n1).unwrap()).mod_floor(&n012)
+            + (&c2 * &ms2 * mod_inv(&ms2, &n2).unwrap()).mod_floor(&n012))
         .mod_floor(&n012);
         let m = result.nth_root(3);
         assert_eq!(m.to_bytes_be(), message);

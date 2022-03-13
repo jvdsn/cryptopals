@@ -1,9 +1,11 @@
 use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_integer::Integer;
 use num_traits::{One, Signed, Zero};
 
 pub mod aes;
 pub mod conversion;
 pub mod dh;
+pub mod dsa;
 pub mod hmac;
 pub mod key_value;
 pub mod md4;
@@ -36,9 +38,10 @@ pub fn egcd(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
 }
 
 #[must_use]
-pub fn mod_inv(a: &BigInt, n: &BigUint) -> Option<BigUint> {
-    let n_ = n.to_bigint().unwrap();
-    let (r, _, mut t) = egcd(&n_, a);
+pub fn mod_inv(a: &BigUint, n: &BigUint) -> Option<BigUint> {
+    let a_ = &a.to_bigint().unwrap();
+    let n_ = &n.to_bigint().unwrap();
+    let (r, _, mut t) = egcd(n_, a_);
     if r.is_one() {
         if t.is_negative() {
             t += n_;
@@ -46,5 +49,15 @@ pub fn mod_inv(a: &BigInt, n: &BigUint) -> Option<BigUint> {
         Option::Some(t.to_biguint().unwrap())
     } else {
         Option::None
+    }
+}
+
+pub fn mod_sub(a: &BigUint, b: &BigUint, n: &BigUint) -> BigUint {
+    let a = a.mod_floor(n);
+    let b = b.mod_floor(n);
+    if a >= b {
+        a - b
+    } else {
+        n - (b - a)
     }
 }
