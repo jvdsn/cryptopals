@@ -1,7 +1,7 @@
 use crate::shared::{mod_inv, mod_sub};
 use num_bigint::{BigUint, RandBigInt};
 use num_integer::Integer;
-use num_traits::{One, Zero};
+use num_traits::One;
 
 #[must_use]
 pub fn generate_keypair(p: &BigUint, q: &BigUint, g: &BigUint) -> (BigUint, BigUint) {
@@ -13,16 +13,11 @@ pub fn generate_keypair(p: &BigUint, q: &BigUint, g: &BigUint) -> (BigUint, BigU
 #[must_use]
 pub fn sign(p: &BigUint, q: &BigUint, g: &BigUint, x: &BigUint, m: &BigUint) -> (BigUint, BigUint) {
     assert!(m < q);
-    loop {
-        let k = &rand::thread_rng().gen_biguint_range(&BigUint::one(), q);
-        let r = g.modpow(k, p).mod_floor(q);
-        if !r.is_zero() {
-            let s = (mod_inv(k, q).unwrap() * (m + x * &r)).mod_floor(q);
-            if !s.is_zero() {
-                return (r, s);
-            }
-        }
-    }
+    let k = &rand::thread_rng().gen_biguint_range(&BigUint::one(), q);
+    // Normally we should check that r and s are not zero here, but then challenge 45 doesn't work...
+    let r = g.modpow(k, p).mod_floor(q);
+    let s = (mod_inv(k, q).unwrap() * (m + x * &r)).mod_floor(q);
+    (r, s)
 }
 
 #[must_use]
@@ -35,10 +30,7 @@ pub fn verify(
     r: &BigUint,
     s: &BigUint,
 ) -> bool {
-    if r.is_zero() || r >= q || s.is_zero() || s >= q {
-        return false;
-    }
-
+    // Normally we should check that r and s are not zero here, but then challenge 45 doesn't work...
     assert!(m < q);
     let w = &mod_inv(s, q).unwrap();
     let u1 = &(m * w).mod_floor(q);

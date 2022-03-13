@@ -5,7 +5,7 @@ pub mod tests {
     use crate::shared::{dsa, mod_inv, mod_sub, rsa};
     use num_bigint::BigUint;
     use num_integer::Integer;
-    use num_traits::{Num, One};
+    use num_traits::{Num, One, Zero};
     use std::fs::File;
     use std::io::{BufRead, BufReader};
     use std::str::FromStr;
@@ -162,8 +162,47 @@ pub mod tests {
                 let x = dsa::find_x(q, &m[i], &BigUint::from(k), &r[i], &s[i]);
                 let mut hash = [0; 20];
                 SHA1::default().hash(x.to_str_radix(16).as_bytes(), &mut hash);
+                println!("{x}");
                 return target_hash == hash;
             })
         }));
+    }
+
+    #[test]
+    fn test_challenge_45() {
+        let p_hex = b"\
+        800000000000000089e1855218a0e7dac38136ffafa72eda7\
+        859f2171e25e65eac698c1702578b07dc2a1076da241c76c6\
+        2d374d8389ea5aeffd3226a0530cc565f3bf6b50929139ebe\
+        ac04f48c3c84afb796d61e5a4f9a8fda812ab59494232c7d2\
+        b4deb50aa18ee9e132bfa85ac4374d7f9091abc3d015efc87\
+        1a584471bb1";
+        let q_hex = b"f4f47f05794b256174bba6e9b396a7707e563c5b";
+        let x_hex = b"f1b733db159c66bce071d21e044a48b0e4c1665a";
+        let y_hex = b"\
+        2d026f4bf30195ede3a088da85e398ef869611d0f68f07\
+        13d51c9c1a3a26c95105d915e2d8cdf26d056b86b8a7b8\
+        5519b1c23cc3ecdc6062650462e3063bd179c2a6581519\
+        f674a61f1d89a1fff27171ebc1b93d4dc57bceb7ae2430\
+        f98a6a4d83d8279ee65d71c1203d2c96d65ebbf7cce9d3\
+        2971c3de5084cce04a2e147821";
+        let m_hex = b"d2d0714f014a9784047eaeccf956520045c45265";
+
+        let p = &BigUint::parse_bytes(p_hex, 16).unwrap();
+        let q = &BigUint::parse_bytes(q_hex, 16).unwrap();
+        let x = &BigUint::parse_bytes(x_hex, 16).unwrap();
+        let y = &BigUint::parse_bytes(y_hex, 16).unwrap();
+        let m = &BigUint::parse_bytes(m_hex, 16).unwrap();
+
+        let g = &BigUint::zero();
+        let (ref r, ref s) = dsa::sign(p, q, g, x, m);
+        assert!(dsa::verify(p, q, g, y, m, r, s));
+        assert!(dsa::verify(p, q, g, y, &(m + BigUint::one()), r, s));
+
+        let g = &BigUint::one();
+        let r = &y.mod_floor(q);
+        let s = r;
+        assert!(dsa::verify(p, q, g, y, m, r, s));
+        assert!(dsa::verify(p, q, g, y, &(m + BigUint::one()), r, s));
     }
 }
