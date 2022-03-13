@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::shared::conversion::hex_to_bytes;
+    use crate::shared::conversion::{base64_to_bytes, hex_to_bytes};
     use crate::shared::sha1::SHA1;
     use crate::shared::{dsa, mod_inv, mod_sub, rsa};
     use num_bigint::BigUint;
@@ -8,6 +8,7 @@ pub mod tests {
     use num_traits::{Num, One, Zero};
     use std::fs::File;
     use std::io::{BufRead, BufReader};
+    use std::ops::Shr;
     use std::str::FromStr;
 
     #[test]
@@ -204,5 +205,36 @@ pub mod tests {
         let s = r;
         assert!(dsa::verify(p, q, g, y, m, r, s));
         assert!(dsa::verify(p, q, g, y, &(m + BigUint::one()), r, s));
+    }
+
+    #[test]
+    fn test_challenge_46() {
+        let message = base64_to_bytes("VGhhdCdzIHdoeSBJIGZvdW5kIHlvdSBkb24ndCBwbGF5IGFyb3VuZCB3aXRoIHRoZSBGdW5reSBDb2xkIE1lZGluYQ==").unwrap();
+        let m = BigUint::from_bytes_be(&message);
+        // Apparently there's no real pure Rust libraries to generate random primes??...
+        let p = &BigUint::from_str("9902478688314345424239631829098064031372511021415073888934444987805904619070767824954564980642642554558422713147827332946886953946202126417051242267443733").unwrap();
+        let q = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
+        let (public_key, private_key) = rsa::generate_keypair(p, q);
+        let mut c = rsa::encrypt(&public_key, &m);
+        let (ref n, ref e) = public_key;
+
+        let parity_oracle = |c: &BigUint| rsa::decrypt(&private_key, c).is_even();
+
+        let mul = &BigUint::from(2u8).modpow(e, n);
+        let mut left = BigUint::zero();
+        let mut right = n.clone();
+        // This will take a long time...
+        while left != right {
+            c = (c * mul).mod_floor(n);
+            if parity_oracle(&c) {
+                right = (&right + &left).shr(1);
+            } else {
+                left = (&right + &left).shr(1);
+            }
+        }
+
+        let m = right.to_bytes_be();
+        let message = String::from_utf8_lossy(&m);
+        assert!(message.starts_with("That's why I found you don't play around with the Funky Cold"));
     }
 }
