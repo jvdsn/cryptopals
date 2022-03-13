@@ -1,13 +1,13 @@
 #[cfg(test)]
 pub mod tests {
     use crate::shared::conversion::hex_to_bytes;
-    use crate::shared::dsa::find_x;
-    use crate::shared::rsa::{sign, verify, SHA1_ASN1_ID};
     use crate::shared::sha1::SHA1;
-    use crate::shared::{mod_inv, rsa};
+    use crate::shared::{dsa, mod_inv, mod_sub, rsa};
     use num_bigint::BigUint;
     use num_integer::Integer;
-    use num_traits::One;
+    use num_traits::{Num, One};
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
     use std::str::FromStr;
 
     #[test]
@@ -37,13 +37,13 @@ pub mod tests {
         let (public_key, private_key) = rsa::generate_keypair(p, q);
 
         let mut sig = [0; 128];
-        sign(&private_key, message, &mut sig);
-        assert!(verify(&public_key, message, &sig));
+        rsa::sign(&private_key, message, &mut sig);
+        assert!(rsa::verify(&public_key, message, &sig));
 
         let mut hash = [0; 20];
         SHA1::default().hash(message, &mut hash);
         let mut data = [0; 35];
-        data[0..15].copy_from_slice(SHA1_ASN1_ID);
+        data[0..15].copy_from_slice(rsa::SHA1_ASN1_ID);
         data[15..35].copy_from_slice(&hash);
         let suffix = BigUint::from_bytes_be(&data);
         assert!(!suffix.is_even());
@@ -60,7 +60,7 @@ pub mod tests {
         let mut sig = BigUint::from_bytes_be(&c).nth_root(3).to_bytes_be();
         let sig_len = sig.len();
         sig[sig_len - suffix.len()..sig_len].copy_from_slice(&suffix);
-        assert!(verify(&public_key, message, &sig));
+        assert!(rsa::verify(&public_key, message, &sig));
     }
 
     #[test]
@@ -86,22 +86,84 @@ pub mod tests {
         e44984e2f411788efdc837a0d2e5abb7b555039fd243ac01f0fb2ed\
         1dec568280ce678e931868d23eb095fde9d3779191b8c0299d6e07b\
         bb283e6633451e535c45513b2d33c99ea17";
-        let h_hex = b"d2d0714f014a9784047eaeccf956520045c45265";
+        let m_hex = b"d2d0714f014a9784047eaeccf956520045c45265";
 
         let _p = &BigUint::parse_bytes(p_hex, 16).unwrap();
         let q = &BigUint::parse_bytes(q_hex, 16).unwrap();
         let _g = &BigUint::parse_bytes(g_hex, 16).unwrap();
         let _y = &BigUint::parse_bytes(y_hex, 16).unwrap();
-        let h = &BigUint::parse_bytes(h_hex, 16).unwrap();
+        let m = &BigUint::parse_bytes(m_hex, 16).unwrap();
 
         let r = &BigUint::from_str("548099063082341131477253921760299949438196259240").unwrap();
         let s = &BigUint::from_str("857042759984254168557880549501802188789837994940").unwrap();
         let target_hash = hex_to_bytes("0954edd5e0afe5542a4adf012611a91912a3ec16").unwrap();
         assert!((0..=65535).any(|k: u16| {
-            let x = find_x(q, h, &BigUint::from(k), r, s);
+            let x = dsa::find_x(q, m, &BigUint::from(k), r, s);
             let mut hash = [0; 20];
             SHA1::default().hash(x.to_str_radix(16).as_bytes(), &mut hash);
             target_hash == hash
+        }));
+    }
+
+    #[test]
+    fn test_challenge_44() {
+        let p_hex = b"\
+        800000000000000089e1855218a0e7dac38136ffafa72eda7\
+        859f2171e25e65eac698c1702578b07dc2a1076da241c76c6\
+        2d374d8389ea5aeffd3226a0530cc565f3bf6b50929139ebe\
+        ac04f48c3c84afb796d61e5a4f9a8fda812ab59494232c7d2\
+        b4deb50aa18ee9e132bfa85ac4374d7f9091abc3d015efc87\
+        1a584471bb1";
+        let q_hex = b"f4f47f05794b256174bba6e9b396a7707e563c5b";
+        let g_hex = b"\
+        5958c9d3898b224b12672c0b98e06c60df923cb8bc999d119\
+        458fef538b8fa4046c8db53039db620c094c9fa077ef389b5\
+        322a559946a71903f990f1f7e0e025e2d7f7cf494aff1a047\
+        0f5b64c36b625a097f1651fe775323556fe00b3608c887892\
+        878480e99041be601a62166ca6894bdd41a7054ec89f756ba\
+        9fc95302291";
+        let y_hex = b"\
+        2d026f4bf30195ede3a088da85e398ef869611d0f68f07\
+        13d51c9c1a3a26c95105d915e2d8cdf26d056b86b8a7b8\
+        5519b1c23cc3ecdc6062650462e3063bd179c2a6581519\
+        f674a61f1d89a1fff27171ebc1b93d4dc57bceb7ae2430\
+        f98a6a4d83d8279ee65d71c1203d2c96d65ebbf7cce9d3\
+        2971c3de5084cce04a2e147821";
+
+        let _p = &BigUint::parse_bytes(p_hex, 16).unwrap();
+        let q = &BigUint::parse_bytes(q_hex, 16).unwrap();
+        let _g = &BigUint::parse_bytes(g_hex, 16).unwrap();
+        let _y = &BigUint::parse_bytes(y_hex, 16).unwrap();
+
+        let mut m = Vec::new();
+        let mut r = Vec::new();
+        let mut s = Vec::new();
+        BufReader::new(File::open("src/set6/challenge44.txt").unwrap())
+            .lines()
+            .filter_map(|line| line.ok())
+            .for_each(|line| {
+                let value: String = line.chars().skip(3).collect();
+                if line.starts_with("m: ") {
+                    m.push(BigUint::from_str_radix(&value, 16).unwrap());
+                }
+                if line.starts_with("r: ") {
+                    r.push(BigUint::from_str(&value).unwrap());
+                }
+                if line.starts_with("s: ") {
+                    s.push(BigUint::from_str(&value).unwrap());
+                }
+            });
+
+        let target_hash = hex_to_bytes("ca8f6f7c66fa362d40760d135b763eb8527d3d52").unwrap();
+        assert!((0..m.len()).any(|i| {
+            (i + 1..m.len()).filter(|&j| m[i] != m[j]).any(|j| {
+                let k = (mod_inv(&mod_sub(&s[i], &s[j], q), q).unwrap() * mod_sub(&m[i], &m[j], q))
+                    .mod_floor(q);
+                let x = dsa::find_x(q, &m[i], &BigUint::from(k), &r[i], &s[i]);
+                let mut hash = [0; 20];
+                SHA1::default().hash(x.to_str_radix(16).as_bytes(), &mut hash);
+                return target_hash == hash;
+            })
         }));
     }
 }

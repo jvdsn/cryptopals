@@ -52,6 +52,7 @@ pub fn mod_inv(a: &BigUint, n: &BigUint) -> Option<BigUint> {
     }
 }
 
+#[must_use]
 pub fn mod_sub(a: &BigUint, b: &BigUint, n: &BigUint) -> BigUint {
     let a = a.mod_floor(n);
     let b = b.mod_floor(n);
