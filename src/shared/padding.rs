@@ -48,19 +48,25 @@ pub fn pad_pkcs1_5(data: &[u8], block_type: u8, k: usize) -> Vec<u8> {
 }
 
 #[must_use]
-pub fn unpad_pkcs1_5(padded: &[u8]) -> Option<Vec<u8>> {
-    if padded.len() < 3 || padded[0] != 0x00 || (padded[1] != 0x01 && padded[1] != 0x02) {
+pub fn unpad_pkcs1_5(padded: &[u8], block_type: u8, check: bool) -> Option<Vec<u8>> {
+    if padded.len() < 3 || padded[0] != 0x00 || padded[1] != block_type {
         return None;
     }
 
     let mut i = 2;
     while padded[i] != 0 {
-        // A good implementation should check that each byte is 0xFF...
-        // if (padded[1] == 0x01 && padded[i] != 0xFF) || (padded.len() == i + 1) {
-        if padded.len() == i + 1 {
+        if check && block_type == 0x01 && padded[i] != 0xFF {
             return None;
         }
+
         i += 1;
+        if i == padded.len() {
+            return None;
+        }
+    }
+
+    if check && block_type == 0x02 && i < 10 {
+        return None;
     }
 
     i += 1;

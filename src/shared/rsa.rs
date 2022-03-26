@@ -27,10 +27,10 @@ pub fn decrypt(private_key: &(BigUint, BigUint), c: &BigUint) -> BigUint {
     c.modpow(d, n)
 }
 
-pub fn sign(private_key: &(BigUint, BigUint), msg: &[u8], sig: &mut [u8]) {
-    let (n, d) = private_key;
+#[must_use]
+pub fn sign(private_key: &(BigUint, BigUint), msg: &[u8]) -> Vec<u8> {
+    let (n, _) = private_key;
     let k = usize::try_from((n.bits() + 7) / 8).unwrap();
-    assert_eq!(sig.len(), k);
 
     let mut hash = [0; 20];
     SHA1::default().hash(msg, &mut hash);
@@ -38,13 +38,13 @@ pub fn sign(private_key: &(BigUint, BigUint), msg: &[u8], sig: &mut [u8]) {
     data[0..15].copy_from_slice(SHA1_ASN1_ID);
     data[15..35].copy_from_slice(&hash);
     let c = BigUint::from_bytes_be(&pad_pkcs1_5(&data, 0x01, k));
-    let s = c.modpow(d, n);
-    sig.copy_from_slice(&s.to_bytes_be());
+    let s = decrypt(private_key, &c);
+    s.to_bytes_be()
 }
 
 #[must_use]
 pub fn verify(public_key: &(BigUint, BigUint), msg: &[u8], sig: &[u8]) -> bool {
-    let (n, e) = public_key;
+    let (n, _) = public_key;
     let k = usize::try_from((n.bits() + 7) / 8).unwrap();
 
     let mut hash = [0; 20];
@@ -53,12 +53,15 @@ pub fn verify(public_key: &(BigUint, BigUint), msg: &[u8], sig: &[u8]) -> bool {
     data[0..15].copy_from_slice(SHA1_ASN1_ID);
     data[15..35].copy_from_slice(&hash);
     let s = BigUint::from_bytes_be(sig);
-    let c = s.modpow(e, n);
+    let c = encrypt(public_key, &s);
     let mut bytes = c.to_bytes_be();
     if bytes.len() != k - 1 {
         return false;
     }
 
     bytes.insert(0, 0x00);
-    unpad_pkcs1_5(&bytes).filter(|d| d == &data).is_some()
+    // We use a vulnerable padding implementation here!
+    unpad_pkcs1_5(&bytes, 0x01, false)
+        .filter(|d| d == &data)
+        .is_some()
 }

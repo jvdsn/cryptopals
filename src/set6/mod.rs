@@ -22,9 +22,10 @@ pub mod tests {
         let c = rsa::encrypt(&public_key, &m);
 
         let (n, e) = public_key;
-        let c_ = (BigUint::from(2u8).modpow(&e, &n) * c).mod_floor(&n);
+        let _2 = &BigUint::from(2u8);
+        let c_ = (_2.modpow(&e, &n) * c).mod_floor(&n);
         let m_ = rsa::decrypt(&private_key, &c_);
-        let m = (m_ * mod_inv(&BigUint::from(2u8), &n).unwrap()).mod_floor(&n);
+        let m = (m_ * mod_inv(_2, &n).unwrap()).mod_floor(&n);
         assert_eq!(m.to_bytes_be(), message);
     }
 
@@ -37,8 +38,7 @@ pub mod tests {
         let q = &BigUint::from_str("9023289800571256384296979170278503137808766752150078076803904588875045578444674044397684797154640374473290798963775917093544857834628721547751219278749279").unwrap();
         let (public_key, private_key) = rsa::generate_keypair(p, q);
 
-        let mut sig = [0; 128];
-        rsa::sign(&private_key, message, &mut sig);
+        let sig = rsa::sign(&private_key, message);
         assert!(rsa::verify(&public_key, message, &sig));
 
         let mut hash = [0; 20];
