@@ -3,6 +3,7 @@ use num_integer::Integer;
 use num_traits::{One, Signed, Zero};
 
 pub mod aes;
+pub mod bleichenbacher;
 pub mod conversion;
 pub mod dh;
 pub mod dsa;

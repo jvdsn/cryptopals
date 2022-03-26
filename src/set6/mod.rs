@@ -1,8 +1,9 @@
 #[cfg(test)]
 pub mod tests {
+    use crate::shared::bleichenbacher::Interval;
     use crate::shared::conversion::{base64_to_bytes, hex_to_bytes};
     use crate::shared::sha1::SHA1;
-    use crate::shared::{dsa, mod_inv, mod_sub, rsa};
+    use crate::shared::{bleichenbacher, dsa, mod_inv, mod_sub, rsa};
     use num_bigint::BigUint;
     use num_integer::Integer;
     use num_traits::{Num, One, Zero};
@@ -236,5 +237,45 @@ pub mod tests {
         let m = right.to_bytes_be();
         let message = String::from_utf8_lossy(&m);
         assert!(message.starts_with("That's why I found you don't play around with the Funky Cold"));
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_challenge_47() {
+        let msg = b"kick it, CC";
+        // Apparently there's no real pure Rust libraries to generate random primes??...
+        let p = &BigUint::from_str("226147947679998672588246739628235237089").unwrap();
+        let q = &BigUint::from_str("172775480584146578358417323216618068661").unwrap();
+        let (public_key, private_key) = rsa::generate_keypair(p, q);
+        let ct = hex_to_bytes("10cd173291c54bd29c5c3fa496368b093661b16e340c51bc4e2aa9768377f504")
+            .unwrap();
+        assert_eq!(rsa::decrypt_padded(&private_key, &ct).unwrap(), msg);
+        let c = &BigUint::from_bytes_be(&ct);
+        let m = rsa::decrypt(&private_key, c);
+        let (ref n, ref e) = public_key;
+
+        let padding_oracle =
+            |c: &BigUint| rsa::decrypt_padded(&private_key, &c.to_bytes_be()).is_some();
+
+        let k = u32::try_from((n.bits() + 7) / 8).unwrap();
+        let B = &BigUint::from(2u8).pow(8 * (k - 2));
+        // No blinding required.
+        assert!(padding_oracle(c));
+        let s0 = &BigUint::one();
+        let c0 = c;
+        let M = [Interval::new(B * 2u8, B * 3u8 - 1u8)];
+        let mut s = bleichenbacher::step_2a(padding_oracle, n, e, c0, B);
+        let mut M = bleichenbacher::step_3(n, B, &s, &M);
+        loop {
+            assert_eq!(M.len(), 1);
+            let interval = &M[0];
+            if interval.a == interval.b {
+                let m_ = (&interval.a * mod_inv(s0, n).unwrap()).mod_floor(n);
+                assert_eq!(m_, m);
+                break;
+            }
+            s = bleichenbacher::step_2c(padding_oracle, n, e, c0, B, &s, &interval.a, &interval.b);
+            M = bleichenbacher::step_3(n, B, &s, &M);
+        }
     }
 }

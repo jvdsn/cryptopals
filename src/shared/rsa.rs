@@ -28,6 +28,34 @@ pub fn decrypt(private_key: &(BigUint, BigUint), c: &BigUint) -> BigUint {
 }
 
 #[must_use]
+pub fn encrypt_padded(public_key: &(BigUint, BigUint), msg: &[u8]) -> Vec<u8> {
+    let (n, _) = public_key;
+    let k = usize::try_from((n.bits() + 7) / 8).unwrap();
+    assert!(msg.len() <= k - 3 - 8);
+
+    let m = BigUint::from_bytes_be(&pad_pkcs1_5(msg, 0x02, k));
+    let c = encrypt(public_key, &m);
+    c.to_bytes_be()
+}
+
+#[must_use]
+pub fn decrypt_padded(private_key: &(BigUint, BigUint), ct: &[u8]) -> Option<Vec<u8>> {
+    let (n, _) = private_key;
+    let k = usize::try_from((n.bits() + 7) / 8).unwrap();
+    assert!(ct.len() <= k);
+
+    let c = BigUint::from_bytes_be(ct);
+    let m = decrypt(private_key, &c);
+    let mut msg = m.to_bytes_be();
+    if msg.len() != k - 1 {
+        return None;
+    }
+
+    msg.insert(0, 0x00);
+    unpad_pkcs1_5(&msg, 0x02, true)
+}
+
+#[must_use]
 pub fn sign(private_key: &(BigUint, BigUint), msg: &[u8]) -> Vec<u8> {
     let (n, _) = private_key;
     let k = usize::try_from((n.bits() + 7) / 8).unwrap();
