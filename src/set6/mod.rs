@@ -1,6 +1,5 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::shared::bleichenbacher::Interval;
     use crate::shared::conversion::{base64_to_bytes, hex_to_bytes};
     use crate::shared::sha1::SHA1;
     use crate::shared::{bleichenbacher, dsa, mod_inv, mod_sub, rsa};
@@ -257,25 +256,29 @@ pub mod tests {
         let padding_oracle =
             |c: &BigUint| rsa::decrypt_padded(&private_key, &c.to_bytes_be()).is_some();
 
-        let k = u32::try_from((n.bits() + 7) / 8).unwrap();
-        let B = &BigUint::from(2u8).pow(8 * (k - 2));
-        // No blinding required.
-        assert!(padding_oracle(c));
-        let s0 = &BigUint::one();
-        let c0 = c;
-        let M = [Interval::new(B * 2u8, B * 3u8 - 1u8)];
-        let mut s = bleichenbacher::step_2a(padding_oracle, n, e, c0, B);
-        let mut M = bleichenbacher::step_3(n, B, &s, &M);
-        loop {
-            assert_eq!(M.len(), 1);
-            let interval = &M[0];
-            if interval.a == interval.b {
-                let m_ = (&interval.a * mod_inv(s0, n).unwrap()).mod_floor(n);
-                assert_eq!(m_, m);
-                break;
-            }
-            s = bleichenbacher::step_2c(padding_oracle, n, e, c0, B, &s, &interval.a, &interval.b);
-            M = bleichenbacher::step_3(n, B, &s, &M);
-        }
+        let m_ = bleichenbacher::attack(padding_oracle, n, e, c);
+        assert_eq!(m_, m);
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_challenge_48() {
+        let msg = b"a much longer plaintext message";
+        // Apparently there's no real pure Rust libraries to generate random primes??...
+        let p = &BigUint::from_str("6735141684357686395037910431080036071732546238601212352069774099870323265055480397226207750793893471356146570963896469919488976152492583032174713330061959").unwrap();
+        let q = &BigUint::from_str("4031388370185090417350155343960777126114936942397927759073182276734271076803441996486242455696330540663229242967183783542330024599134161134568952089530167").unwrap();
+        let (public_key, private_key) = rsa::generate_keypair(p, q);
+        let ct = hex_to_bytes("26331a7f0ea4b9917d043c8ac7495b3ec3e4d5599aef1f0b1e0b84bb47a9056394f6c802c093658b49dcc368189afe0aff821c34e23d3d1ed033009c77bdb8df80118a538a75feae2ee614cbbed80092c3bf666fc5674c16f84714231727efb568da2260fc950dd0d60ed2c935f50446e261536fa766e4afbb26e2d60c8efdf1")
+            .unwrap();
+        assert_eq!(rsa::decrypt_padded(&private_key, &ct).unwrap(), msg);
+        let c = &BigUint::from_bytes_be(&ct);
+        let m = rsa::decrypt(&private_key, c);
+        let (ref n, ref e) = public_key;
+
+        let padding_oracle =
+            |c: &BigUint| rsa::decrypt_padded(&private_key, &c.to_bytes_be()).is_some();
+
+        let m_ = bleichenbacher::attack(padding_oracle, n, e, c);
+        assert_eq!(m_, m);
     }
 }

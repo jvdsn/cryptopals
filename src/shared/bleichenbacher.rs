@@ -1,5 +1,7 @@
+use crate::shared::mod_inv;
 use num_bigint::BigUint;
 use num_integer::Integer;
+use num_traits::One;
 use std::ops::{Add, Mul};
 
 #[derive(Clone)]
@@ -39,7 +41,7 @@ impl Interval {
 }
 
 #[allow(non_snake_case)]
-pub fn insert(M: &mut Vec<Interval>, interval: Interval) {
+fn insert(M: &mut Vec<Interval>, interval: Interval) {
     if let Some(i) = M.iter_mut().find(|i| i.overlaps(&interval)) {
         i.merge(interval);
     } else {
@@ -49,7 +51,7 @@ pub fn insert(M: &mut Vec<Interval>, interval: Interval) {
 
 #[allow(non_snake_case)]
 #[must_use]
-pub fn step_2a<F>(padding_oracle: F, n: &BigUint, e: &BigUint, c0: &BigUint, B: &BigUint) -> BigUint
+fn step_2a<F>(padding_oracle: F, n: &BigUint, e: &BigUint, c0: &BigUint, B: &BigUint) -> BigUint
 where
     F: Fn(&BigUint) -> bool,
 {
@@ -61,9 +63,22 @@ where
 }
 
 #[allow(non_snake_case)]
+#[must_use]
+fn step_2b<F>(padding_oracle: F, n: &BigUint, e: &BigUint, c0: &BigUint, s: &BigUint) -> BigUint
+where
+    F: Fn(&BigUint) -> bool,
+{
+    let mut s = s.add(1u8);
+    while !padding_oracle(&c0.mul(s.modpow(e, n)).mod_floor(n)) {
+        s = s.add(1u8);
+    }
+    s
+}
+
+#[allow(non_snake_case)]
 #[allow(clippy::too_many_arguments)]
 #[must_use]
-pub fn step_2c<F>(
+fn step_2c<F>(
     padding_oracle: F,
     n: &BigUint,
     e: &BigUint,
@@ -93,7 +108,7 @@ where
 
 #[allow(non_snake_case)]
 #[must_use]
-pub fn step_3(n: &BigUint, B: &BigUint, s: &BigUint, M: &[Interval]) -> Vec<Interval> {
+fn step_3(n: &BigUint, B: &BigUint, s: &BigUint, M: &[Interval]) -> Vec<Interval> {
     let mut M_ = Vec::new();
     M.iter().for_each(|i| {
         let left = (&i.a * s - B * 3u8 + 1u8).div_ceil(n);
@@ -110,4 +125,34 @@ pub fn step_3(n: &BigUint, B: &BigUint, s: &BigUint, M: &[Interval]) -> Vec<Inte
         }
     });
     M_
+}
+
+#[allow(non_snake_case)]
+#[must_use]
+pub fn attack<F>(padding_oracle: F, n: &BigUint, e: &BigUint, c: &BigUint) -> BigUint
+where
+    F: Fn(&BigUint) -> bool,
+{
+    let k = u32::try_from((n.bits() + 7) / 8).unwrap();
+    let B = &BigUint::from(2u8).pow(8 * (k - 2));
+    // No blinding required.
+    assert!(padding_oracle(c));
+    let s0 = &BigUint::one();
+    let c0 = c;
+    let M = [Interval::new(B * 2u8, B * 3u8 - 1u8)];
+    let mut s = step_2a(&padding_oracle, n, e, c0, B);
+    let mut M = step_3(n, B, &s, &M);
+    loop {
+        if M.len() > 1 {
+            s = step_2b(&padding_oracle, n, e, c0, &s);
+        } else {
+            let interval = &M[0];
+            if interval.a == interval.b {
+                let m = (&interval.a * mod_inv(s0, n).unwrap()).mod_floor(n);
+                return m;
+            }
+            s = step_2c(&padding_oracle, n, e, c0, B, &s, &interval.a, &interval.b);
+        }
+        M = step_3(n, B, &s, &M);
+    }
 }
