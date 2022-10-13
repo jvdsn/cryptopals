@@ -12,5 +12,5 @@ If you are adventurous, you can compile & test the solutions using the `cargo te
 * [Set 5](src/set5/mod.rs)
 * [Set 6](src/set6/mod.rs)
 
-## Shared
+## Disclaimer
 Some other code includes pure Rust implementations of [MD-4](src/shared/md4.rs), the [Mersenne Twister](src/shared/mersenne_twister.rs), [SHA-1](src/shared/sha1.rs), and [SHA-256](src/shared/sha256.rs). Obviously, this code should never be used in real-world applications, but it at least looks like it produces the correct values.
